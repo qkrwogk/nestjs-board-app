@@ -512,6 +512,68 @@ export class BoardsController {
 
 이런식이면 예외처리도 어어어엄청 편할 것 같다.. 이제까지 한 노가다들이여 안녕..
 
+## 찾는 게시물이 없을 때 예외 처리
+
+`NotFoundException()`이라는 객체로 에러를 보내줄 수 있음.
+(Error 클래스 상속한 거인듯)
+
+```ts
+// boards.service.ts
+import { Injectable, NotFoundException } from '@nestjs/common';
+...
+
+@Injectable()
+export class BoardsService {
+  private boards: Board[] = [];
+  ...
+  getBoardById(id: string): Board {
+    const found = this.boards.find((board) => board.id === id);
+
+    if (!found) {
+      throw new NotFoundException(`Can't find Board with id ${id}`);
+    }
+    return found;
+  }
+  ...
+}
+```
+
+자 테스트해보자. 이상한 uuid값으로 조회를 해보면 됨.
+
+<img width="791" alt="스크린샷 2023-10-14 오후 4 41 12" src="https://user-images.githubusercontent.com/138586629/275163797-69c1d28c-4df5-4db7-890a-22a1611e6636.png">
+
+적용 전. 아주그냥 빈칸.
+
+<img width="796" alt="스크린샷 2023-10-14 오후 4 44 43" src="https://user-images.githubusercontent.com/138586629/275163813-624a9cd6-ba71-490a-aa0e-b08d86a48360.png">
+
+적용 후. 원하는 에러메세지까지 출력해줌!
+
+## 없는 게시물을 지우려 할 때 예외 처리
+
+getBoardById()를 그냥 호출만 해줘도 알아서 위에서 만든 에러를 보내줄거여!
+
+```ts
+// boards.service.ts
+...
+
+@Injectable()
+export class BoardsService {
+  private boards: Board[] = [];
+  ...
+  deleteBoardById(id: string): void {
+    const found = this.getBoardById(id);
+    this.boards = this.boards.filter((board) => board.id !== found.id);
+  }
+  ...
+}
+```
+
+뭔말인지 알겠지?
+
+<img width="790" alt="스크린샷 2023-10-14 오후 4 48 39" src="https://user-images.githubusercontent.com/138586629/275164586-b66d41b7-831f-4af6-8782-8864783a5c46.png">
+
+굳굳
+
 ## 학습메모
 
 1. [따라하면서 배우는 NestJS](https://www.youtube.com/watch?v=3JminDpCJNE&t=1677s)
