@@ -427,6 +427,92 @@ export class BoardsController {
 }
 ```
 
+컨트롤러는 이렇게
+
+## NestJS Pipes
+
+- Pipe란?
+  - @Injectable() 데코레이터로 주석이 달린 클래스
+  - `data transformation`, `data validation`을 위해서 사용
+- Data Transformation?
+  - 데이터를 원하는 형식(Type 등)으로 변환
+- Data Validation?
+  - 데이터 유효성을 검증하여 올바르지 않으면 에러 반환
+- Pipe 사용법 3가지
+  - `Handler-level Pipes` : 핸들러 레벨에서 @UsePipes() 데코레이터로 적용
+  - `Parameter-level Pipes` : 파라미터 레벨에서 특정 파라미터에만 적용
+  - `Global Pipes` : main.ts에서 들어오는 모든 요청에 적용
+- NestJs 기본 제공 Pipe
+  - ValidationPipe
+  - ParseIntPipe
+  - ParseBoolPipe
+  - ParseArrayPipe
+  - ParseUUIDPipe
+  - DefaultValuePipe
+
+파이프를 이용해서 게시물 생성할 때 유효성 체크를 해보자.
+필요한 모듈은 class-validator, class-transformer
+
+```bash
+npm i class-validatior class-transformer
+```
+
+사용법은 학습메모 2 참고하면 된다.
+
+## Validation Pipe @IsNotEmpty 사용해보기
+
+```ts
+// create-board.dto.ts
+import { IsNotEmpty } from 'class-validator';
+
+export class CreateBoardDto {
+  @IsNotEmpty()
+  title: string;
+
+  @IsNotEmpty()
+  description: string;
+}
+```
+
+먼저 설치한 class-validator를 이용해서 `@IsNotEmpty()` 데코레이터를 title 속성과 description 속성에 적용해줘야 한다.
+
+```ts
+// boards.controller.ts
+import {
+  ...
+  UsePipes,
+  ValidationPipe,
+} from '@nestjs/common';
+...
+
+@Controller('boards')
+export class BoardsController {
+  constructor(private boardsService: BoardsService) {}
+  ...
+  @Post()
+  @UsePipes(ValidationPipe)
+  createBoard(@Body() createBoardDto: CreateBoardDto): Board {
+    return this.boardsService.createBoard(createBoardDto);
+  }
+  ...
+}
+```
+
+이후 createBoard()메소드에 데코레이터로 `@UsePipes(ValidationPipe)`를 달아준다.
+
+자 이제 빈 값을 넣었을 때 Validation Check를 하는지 테스트해보자.
+
+<img width="781" alt="스크린샷 2023-10-14 오후 4 31 04" src="https://user-images.githubusercontent.com/138586629/275163200-8d3db6b6-68ba-4f91-b365-ecbf998b5508.png">
+
+적용 전. 그냥 create가 되어버림.
+
+<img width="790" alt="스크린샷 2023-10-14 오후 4 35 43" src="https://user-images.githubusercontent.com/138586629/275163391-79ec8c50-326e-4cae-bc59-8bdb85e96f85.png">
+
+적용 후. 에러뜨고 create가 안됨! 굳!!
+
+이런식이면 예외처리도 어어어엄청 편할 것 같다.. 이제까지 한 노가다들이여 안녕..
+
 ## 학습메모
 
 1. [따라하면서 배우는 NestJS](https://www.youtube.com/watch?v=3JminDpCJNE&t=1677s)
+2. [class-validator 사용법](https://github.com/typestack/class-validator#manual-validation)
