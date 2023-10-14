@@ -331,6 +331,58 @@ Controller는 요렇게! 훨씬 깔끔해졌죠?
 현업에서의 클래스는 속성이 수백개가 있을 수 있는데, 그걸 하나하나 파싱해서 값 넣어주고 하면 수정할때 지옥인데,
 이런식으로 DTO로 전달하고 원하는 값만 쏙쏙 빼는 형식이면 유지보수하기가 훨씬 편하다고 하더라.
 
+## ID로 특정 게시물 가져오기, 지우기
+
+getBoardById(), deleteBoardById()라는 메소드를 서비스에서부터 만들어보자.
+
+```ts
+// boards.service.ts
+import { Injectable } from '@nestjs/common';
+import { Board, BoardStatus } from './boards.model';
+import { v1 as uuid } from 'uuid';
+import { CreateBoardDto } from './dto/create-board.dto';
+
+@Injectable()
+export class BoardsService {
+  private boards: Board[] = [];
+  ...
+  getBoardById(id: string): Board {
+    return this.boards.find((board) => board.id === id);
+  }
+
+  deleteBoardById(id: string): void {
+    this.boards = this.boards.filter((board) => board.id !== id);
+  }
+}
+```
+
+Service는 요렇게!
+
+```ts
+// boards.controller.ts
+import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
+import { BoardsService } from './boards.service';
+import { Board } from './boards.model';
+import { CreateBoardDto } from './dto/create-board.dto';
+
+@Controller('boards')
+export class BoardsController {
+  constructor(private boardsService: BoardsService) {}
+  ...
+  @Get('/:id')
+  groupBoardById(@Param('id') id: string): Board {
+    return this.boardsService.getBoardById(id);
+  }
+
+  @Delete('/:id')
+  deleteBoardById(@Param('id') id: string): void {
+    return this.boardsService.deleteBoardById(id);
+  }
+}
+```
+
+Controller는 이렇게 하면 된다. 개껌이네 ㅋ
+
 ##
 
 ## 학습메모
