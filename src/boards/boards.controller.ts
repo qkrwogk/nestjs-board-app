@@ -44,6 +44,6 @@ export class BoardsController {
     @Param('id') id: string,
     @Body('status', BoardStatusValidationPipe) status: BoardStatus,
   ): Board {
-    return this.updateBoardStatus(id, status);
+    return this.boardsService.updateBoardStatus(id, status);
   }
 }

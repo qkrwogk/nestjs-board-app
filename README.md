@@ -656,6 +656,28 @@ export class BoardsController {
 
 에라이
 
+---
+
+문제 해결
+
+```ts
+// boards.controller.ts
+@Patch('/:id/status')
+updateBoardStatus(
+  @Param('id') id: string,
+  @Body('status', BoardStatusValidationPipe) status: BoardStatus,
+): Board {
+  return this.boardsService.updateBoardStatus(id, status);
+}
+```
+
+`this.boardsService.updateBoardStatus`이거 걍 오타난거였음.. ㅠ
+
+<img width="802" alt="스크린샷 2023-10-14 오후 5 38 27" src="https://user-images.githubusercontent.com/138586629/275173714-7eeb54e6-9f3b-431d-92cc-a364c1c49610.png">
+
+정상적으로 잘 바뀜! 근데 이거 보니까 `npm run start:dev`하니
+console.log()가 정상 작동을 안하네..? 후 로그 찍어보는거 좀 찾아봐야겠다.
+
 ## 학습메모
 
 1. [따라하면서 배우는 NestJS](https://www.youtube.com/watch?v=3JminDpCJNE&t=1677s)
