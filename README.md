@@ -196,7 +196,7 @@ export class BoardsController {
 
 이후 service와 controller에서 `: Board[]`로 타입을 특정해주면 됨.
 
-## 게시물 생성하기 (Create)
+## 게시물 생성하기 (POST(Create))
 
 `UUID`를 이용하여 사용할거기 때문에 uuid 모듈을 설치해준다.
 
@@ -331,7 +331,7 @@ Controller는 요렇게! 훨씬 깔끔해졌죠?
 현업에서의 클래스는 속성이 수백개가 있을 수 있는데, 그걸 하나하나 파싱해서 값 넣어주고 하면 수정할때 지옥인데,
 이런식으로 DTO로 전달하고 원하는 값만 쏙쏙 빼는 형식이면 유지보수하기가 훨씬 편하다고 하더라.
 
-## ID로 특정 게시물 가져오기, 지우기
+## ID로 특정 게시물 가져오기, 지우기 (GET(Read), DELETE(Delete))
 
 getBoardById(), deleteBoardById()라는 메소드를 서비스에서부터 만들어보자.
 
@@ -383,7 +383,49 @@ export class BoardsController {
 
 Controller는 이렇게 하면 된다. 개껌이네 ㅋ
 
-##
+## 특정 게시물의 상태(PUBLIC/PRIVATE) 업데이트 기능 추가 (PATCH(Update))
+
+```ts
+// boards.service.ts
+import { Injectable } from '@nestjs/common';
+import { Board, BoardStatus } from './boards.model';
+import { v1 as uuid } from 'uuid';
+import { CreateBoardDto } from './dto/create-board.dto';
+
+@Injectable()
+export class BoardsService {
+  private boards: Board[] = [];
+  ...
+  updateBoardStatus(id: string, status: BoardStatus): Board {
+    const board = this.getBoardById(id);
+    board.status = status;
+    return board;
+  }
+}
+```
+
+서비스는 이렇게
+
+```ts
+// boards.controller.ts
+import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import { BoardsService } from './boards.service';
+import { Board, BoardStatus } from './boards.model';
+import { CreateBoardDto } from './dto/create-board.dto';
+
+@Controller('boards')
+export class BoardsController {
+  constructor(private boardsService: BoardsService) {}
+  ...
+  @Patch('/:id/status')
+  updateBoardStatus(
+    @Param('id') id: string,
+    @Body('status') status: BoardStatus,
+  ): Board {
+    return this.updateBoardStatus(id, status);
+  }
+}
+```
 
 ## 학습메모
 
