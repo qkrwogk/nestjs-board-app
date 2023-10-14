@@ -33,7 +33,7 @@ nest init project 생성. 이러면 기본 파일들이 모두 세팅된다.
 
 <img width="334" alt="스크린샷 2023-10-14 오후 1 55 36" src="https://user-images.githubusercontent.com/138586629/275139337-4b75beb2-fa2d-4b24-982c-a396268aa6bf.png">
 
-```javascript
+```ts
 import { Module } from '@nestjs/common';
 
 @Module({
@@ -47,7 +47,7 @@ export class AppModule {}
 여기서 test 관련 파일, 자동으로 생성된 controllers와 service 파일들을 모두 제거하고,
 app.module.ts에서 등록되어 있는 부분들도 모두 깔끔하게 제거해준다. 여기서부터 새로 만들어갈 예정!
 
-## 프로젝트 생성
+## boards module, controller, service 생성
 
 ```bash
 nest g module boards
@@ -63,6 +63,27 @@ nest g controller boards --no-spec
 
 비슷한 명령으로 controller를 생성해줌.
 `--no-spec`은 test 코드를 안만든다는 거고, 빼면 test코드도 같이 생성해줌.
+
+```bash
+nest g service boards --no-spec
+```
+
+또 비슷한 명령으로 service를 생성해줌.
+service는 @Injectable이라는 데코레이터로 의존성 주입이 가능한 "Provider"의 일종임
+실제로 boards controller에서 사용할 수 있도록 의존성 주입 처리를 해줘야 하는데,
+
+```ts
+// boards.controller.ts
+import { Controller } from '@nestjs/common';
+import { BoardsService } from './boards.service';
+
+@Controller('boards')
+export class BoardsController {
+  constructor(private boardsService: BoardsService) {}
+}
+```
+
+이렇게 constructor 한줄 추가하면 됨. (ts 문법)
 
 ## 학습메모
 
