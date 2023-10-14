@@ -678,7 +678,22 @@ updateBoardStatus(
 정상적으로 잘 바뀜! 근데 이거 보니까 `npm run start:dev`하니
 console.log()가 정상 작동을 안하네..? 후 로그 찍어보는거 좀 찾아봐야겠다.
 
+---
+
+찾아봄. 학습메모 3 참고
+
+```ts
+import { Logger } from '@nestjs/common';
+
+Logger.log('info');
+Logger.warn('warning');
+Logger.error('something went wrong! ', error);
+```
+
+요런식으로 찍어보면 된단다. 이제 이걸 이용하자고!
+
 ## 학습메모
 
 1. [따라하면서 배우는 NestJS](https://www.youtube.com/watch?v=3JminDpCJNE&t=1677s)
 2. [class-validator 사용법](https://github.com/typestack/class-validator#manual-validation)
+3. [nestJS 환경에서 log 찍기](https://stackoverflow.com/questions/59741255/how-can-i-see-console-log-output-when-running-a-nestjs-app)
