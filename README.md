@@ -574,6 +574,88 @@ export class BoardsService {
 
 굳굳
 
+## 커스텀 파이프를 이용한 유효성 체크
+
+PipeTransform이라는 인터페이스를 새롭게 만들 파이프에 구현해줘야 함.
+(class ... implements PipeTransform)
+
+- transform() 메소드의 파라미터
+  - value : 처리가 된 인자의 값
+  - metadata : 인자에 대한 메타데이터
+
+status옵션이 PRIVATE 아니면 PUBLIC만 올 수 있게 파이프를 만들어주자.
+
+<img width="255" alt="스크린샷 2023-10-14 오후 4 56 16" src="https://user-images.githubusercontent.com/138586629/275172082-83d33d61-a28c-4af4-9609-90a8803e6b43.png">
+
+`/src/pipes/board-status-validation.pipe.ts` 생성
+
+```ts
+// board-status-validation.pipe.ts
+import { BadRequestException, PipeTransform } from '@nestjs/common';
+import { BoardStatus } from '../boards.model';
+
+export class BoardStatusValidationPipe implements PipeTransform {
+  readonly StatusOptions = [BoardStatus.PRIVATE, BoardStatus.PUBLIC];
+
+  transform(value: any) {
+    value = value.toUpperCase();
+
+    if (!this.isStatusValid(value)) {
+      throw new BadRequestException(`${value} isn't in the status options`);
+    }
+
+    return value;
+  }
+
+  private isStatusValid(status: any) {
+    const index = this.StatusOptions.indexOf(status);
+    return index !== -1;
+  }
+}
+```
+
+isStatusValid() 메소드의 indexOf()는 없는 값이면 -1을 반환한다.
+이걸 이용해서 PUBLIC, PRIVATE 중 하나의 값인지를 체크하는거임.
+
+그리고 이번엔 BadRequestException 에러 객체를 이용한다.
+
+```ts
+// boards.controller.ts
+...
+import { BoardStatusValidationPipe } from './pipes/board-status-validation.pipe';
+
+@Controller('boards')
+export class BoardsController {
+  constructor(private boardsService: BoardsService) {}
+  ...
+  @Patch('/:id/status')
+  updateBoardStatus(
+    @Param('id') id: string,
+    @Body('status', BoardStatusValidationPipe) status: BoardStatus,
+  ): Board {
+    return this.updateBoardStatus(id, status);
+  }
+}
+```
+
+자 이제 게시글 하나 생성해서, 그 값을 정상적으로 한번, 비정상적으로 한번 변경해보자.
+
+<img width="794" alt="스크린샷 2023-10-14 오후 5 23 31" src="https://user-images.githubusercontent.com/138586629/275173057-f6642a9e-e7e6-42be-abdc-c83b2847b101.png">
+
+생성했고, 이 아이디를 이용해 업데이트
+
+<img width="787" alt="스크린샷 2023-10-14 오후 5 23 20" src="https://user-images.githubusercontent.com/138586629/275173063-fa16a38f-f09f-4d3b-93bc-71bb2cbf7545.png">
+
+정상적으로 에러 출력. 이번엔 PRIVATE으로 바꿔보자
+
+<img width="789" alt="스크린샷 2023-10-14 오후 5 26 09" src="https://user-images.githubusercontent.com/138586629/275173204-43a19d9c-68a1-4b60-9888-30016b0ea548.png">
+
+아니 이거 왜 에러뜸??
+
+<img width="1071" alt="스크린샷 2023-10-14 오후 5 33 28" src="https://user-images.githubusercontent.com/138586629/275173542-7572985d-7e2b-45ed-b30b-e707af474592.png">
+
+에라이
+
 ## 학습메모
 
 1. [따라하면서 배우는 NestJS](https://www.youtube.com/watch?v=3JminDpCJNE&t=1677s)
