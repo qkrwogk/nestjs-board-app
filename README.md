@@ -85,6 +85,60 @@ export class BoardsController {
 
 이렇게 constructor 한줄 추가하면 됨. (ts 문법)
 
+### 새로운 서비스 메소드 추가해보기
+
+```ts
+// boards.service.ts
+
+import { Injectable } from '@nestjs/common';
+
+@Injectable()
+export class BoardsService {
+  private boards = [];
+
+  getAllBoards() {
+    return this.boards;
+  }
+}
+```
+
+요렇게 새로운 메소드를 하나 추가해본다. `getAllBoards()`. boards 배열을 반환하는 녀석.
+
+```ts
+// boards.controller.ts
+
+import { Controller, Get } from '@nestjs/common';
+import { BoardsService } from './boards.service';
+
+@Controller('boards')
+export class BoardsController {
+  constructor(private boardsService: BoardsService) {}
+
+  @Get()
+  getAllBoards() {
+    return this.boardsService.getAllBoards();
+  }
+}
+```
+
+이걸 사용하려면 controller도 편집해줘야 한다. `@Get()`으로 GET Method에 등록하고,
+controller에서도 메소드를 하나 만들어 this.boardService.getAllBoards()를 호출해서 결과값 그대로 패스.
+메소드 이름은 보통 그냥 같은걸로 해주나봄. 안헷갈리게
+
+```bash
+npm run start:dev
+```
+
+<img width="808" alt="스크린샷 2023-10-14 오후 2 25 08" src="https://user-images.githubusercontent.com/138586629/275143008-7116f627-bcf6-4bfb-ba3b-d809f2f2c23e.png">
+
+이렇게 npm run start:dev로 실행해주면 nodemon처럼 동작한다. localhost:3000번으로 접근해보자.
+
+자 이제 대망의 확인. `GET /boards`에 등록해준 거니까 브라우저에서 `http://localhost:3000/boards`로 가기만 하면 된다.
+
+<img width="432" alt="스크린샷 2023-10-14 오후 2 26 26" src="https://user-images.githubusercontent.com/138586629/275143060-058310a1-6e79-4d01-9362-404135203dec.png">
+
+정상적으로 빈 배열이 출력됨! 이제 끝났지뭐 이런 방식으로 API서버 만드는거네 쉽죠쉽죠?
+
 ## 학습메모
 
 1. [따라하면서 배우는 NestJS](https://www.youtube.com/watch?v=3JminDpCJNE&t=1677s)
