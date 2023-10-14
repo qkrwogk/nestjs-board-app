@@ -258,6 +258,79 @@ export class BoardsController {
 
 기가막히게 잘되어버림ㅎㅎ
 
+## 게시물 생성을 위한 DTO 만들기
+
+DTO(Data Transfer Object)를 만들어보자.
+모델처럼 interface, class로 생성 가능하나, NestJS에서 class를 추천하므로 클래스 고고
+
+<img width="256" alt="스크린샷 2023-10-14 오후 3 06 05" src="https://user-images.githubusercontent.com/138586629/275152121-b9820fde-466f-4aa6-acd1-2fcaa77b72ee.png">
+
+이렇게 `/src/boards/dto/create-board.dto.ts`에 파일을 만들어주고
+
+```ts
+// create-board.dto.ts
+export class CreateBoardDto {
+  title: string;
+  description: string;
+}
+```
+
+이러면 끝 ㅇㅇ. 적용은 마찬가지로 Controller와 Service에 적용해주면 된다.
+
+우리가 앞에서 만든 createBoard()의 인터페이스를 바꿔주는거임.
+
+```ts
+// boards.service.ts
+
+import { Injectable } from '@nestjs/common';
+import { Board, BoardStatus } from './boards.model';
+import { v1 as uuid } from 'uuid';
+import { CreateBoardDto } from './dto/create-board.dto';
+
+@Injectable()
+export class BoardsService {
+  private boards: Board[] = [];
+  ...
+  createBoard(createBoardDto: CreateBoardDto) {
+    const { title, description } = createBoardDto;
+    const board: Board = {
+      id: uuid(),
+      title,
+      description,
+      status: BoardStatus.PUBLIC,
+    };
+
+    this.boards.push(board);
+    return board;
+  }
+}
+```
+
+Service는 요렇게!
+
+```ts
+// boards.controller.ts
+import { Body, Controller, Get, Post } from '@nestjs/common';
+import { BoardsService } from './boards.service';
+import { Board } from './boards.model';
+import { CreateBoardDto } from './dto/create-board.dto';
+
+@Controller('boards')
+export class BoardsController {
+  constructor(private boardsService: BoardsService) {}
+  ...
+  @Post()
+  createBoard(@Body() createBoardDto: CreateBoardDto): Board {
+    return this.boardsService.createBoard(createBoardDto);
+  }
+}
+```
+
+Controller는 요렇게! 훨씬 깔끔해졌죠?
+
+현업에서의 클래스는 속성이 수백개가 있을 수 있는데, 그걸 하나하나 파싱해서 값 넣어주고 하면 수정할때 지옥인데,
+이런식으로 DTO로 전달하고 원하는 값만 쏙쏙 빼는 형식이면 유지보수하기가 훨씬 편하다고 하더라.
+
 ##
 
 ## 학습메모
