@@ -196,6 +196,68 @@ export class BoardsController {
 
 이후 service와 controller에서 `: Board[]`로 타입을 특정해주면 됨.
 
+## 게시물 생성하기 (Create)
+
+`UUID`를 이용하여 사용할거기 때문에 uuid 모듈을 설치해준다.
+
+```bash
+npm i uuid
+```
+
+이제 service에 board를 만들어 boards배열에 집어넣는 메소드 createBoard()를 작성하자.
+
+```ts
+// boards.service.ts
+import { Injectable } from '@nestjs/common';
+import { Board, BoardStatus } from './boards.model';
+import { v1 as uuid } from 'uuid';
+
+@Injectable()
+export class BoardsService {
+  private boards: Board[] = [];
+  ...
+  createBoard(title: string, description: string) {
+    const board: Board = {
+      id: uuid(),
+      title,
+      description,
+      status: BoardStatus.PUBLIC,
+    };
+
+    this.boards.push(board);
+    return board;
+  }
+}
+```
+
+이제 Controller로 가서 `@Post()`로 POST 메소드에 등록을 해줘야 함.
+
+```ts
+// boards.controller.ts
+import { Body, Controller, Get, Post } from '@nestjs/common';
+import { BoardsService } from './boards.service';
+import { Board } from './boards.model';
+
+@Controller('boards')
+export class BoardsController {
+  constructor(private boardsService: BoardsService) {}
+  ...
+  @Post()
+  createBoard(
+    @Body('title') title: string,
+    @Body('description') description: string,
+  ): Board {
+    return this.boardsService.createBoard(title, description);
+  }
+}
+```
+
+자, 이제 Postman으로 새로운 boards를 요청해보자.
+
+<img width="786" alt="스크린샷 2023-10-14 오후 3 00 17" src="https://user-images.githubusercontent.com/138586629/275150015-8b635f1f-e033-40fb-965e-ae4956250814.png">
+
+기가막히게 잘되어버림ㅎㅎ
+
 ##
 
 ## 학습메모
