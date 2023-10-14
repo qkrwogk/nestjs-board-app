@@ -85,7 +85,7 @@ export class BoardsController {
 
 이렇게 constructor 한줄 추가하면 됨. (ts 문법)
 
-### 새로운 서비스 메소드 추가해보기
+## 새로운 서비스 메소드 추가해보기
 
 ```ts
 // boards.service.ts
@@ -138,6 +138,65 @@ npm run start:dev
 <img width="432" alt="스크린샷 2023-10-14 오후 2 26 26" src="https://user-images.githubusercontent.com/138586629/275143060-058310a1-6e79-4d01-9362-404135203dec.png">
 
 정상적으로 빈 배열이 출력됨! 이제 끝났지뭐 이런 방식으로 API서버 만드는거네 쉽죠쉽죠?
+
+## Board의 Model 정의하기
+
+게시판의 요소들을 정리하여 타입도 정하고 해서 모델링을 하는거다.
+ts의 interface나 일반 js class로 만들 수 있는데, class는 인스턴스를 만들수 있지만 이번엔 interface만 정의해봄.
+
+```ts
+// boards.model.ts
+export interface Board {
+  id: string;
+  title: string;
+  description: string;
+  status: BoardStatus;
+}
+
+export enum BoardStatus {
+  PUBLIC = 'PUBLIC',
+  PRIVATE = 'PRIVATE',
+}
+```
+
+이렇게 하면 된다. id는 UUID를 사용할거라 string으로 한거고, BoardStatus는 PUBLIC/PRIVATE 값만 올 수 있도록 또 타입을 정의해준거임.
+
+```ts
+// boards.service.ts
+import { Injectable } from '@nestjs/common';
+import { Board } from './boards.model';
+
+@Injectable()
+export class BoardsService {
+  private boards: Board[] = [];
+
+  getAllBoards(): Board[] {
+    return this.boards;
+  }
+}
+```
+
+```ts
+// boards.controller.ts
+
+import { Controller, Get } from '@nestjs/common';
+import { BoardsService } from './boards.service';
+import { Board } from './boards.model';
+
+@Controller('boards')
+export class BoardsController {
+  constructor(private boardsService: BoardsService) {}
+
+  @Get()
+  getAllBoards(): Board[] {
+    return this.boardsService.getAllBoards();
+  }
+}
+```
+
+이후 service와 controller에서 `: Board[]`로 타입을 특정해주면 됨.
+
+##
 
 ## 학습메모
 
