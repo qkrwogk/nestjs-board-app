@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Board } from './board.entity';
 import { Repository } from 'typeorm';
@@ -12,6 +12,7 @@ export class BoardsService {
     @InjectRepository(Board)
     private boardRepository: Repository<Board>,
   ) {}
+
   async getBoardById(id: number): Promise<Board> {
     const found = await this.boardRepository.findOneBy({ id });
     if (!found) {
@@ -19,6 +20,7 @@ export class BoardsService {
     }
     return found;
   }
+
   async createBoard(createBoardDto: CreateBoardDto): Promise<Board> {
     const { title, description } = createBoardDto;
 
@@ -31,27 +33,21 @@ export class BoardsService {
     await this.boardRepository.save(board);
     return board;
   }
-  // getAllBoards(): Board[] {
-  //   return this.boards;
-  // }
-  // createBoard(createBoardDto: CreateBoardDto) {
-  //   const { title, description } = createBoardDto;
-  //   const board: Board = {
-  //     id: uuid(),
-  //     title,
-  //     description,
-  //     status: BoardStatus.PUBLIC,
-  //   };
-  //   this.boards.push(board);
-  //   return board;
-  // }
-  // deleteBoardById(id: string): void {
-  //   const found = this.getBoardById(id);
-  //   this.boards = this.boards.filter((board) => board.id !== found.id);
-  // }
-  // updateBoardStatus(id: string, status: BoardStatus): Board {
-  //   const board = this.getBoardById(id);
-  //   board.status = status;
-  //   return board;
-  // }
+
+  async deleteBoardById(id: number): Promise<void> {
+    await this.boardRepository.delete({ id });
+
+    Logger.log(`[Boards] Board with id ${id} deleted`);
+  }
+
+  async updateBoardStatus(id: number, status: BoardStatus): Promise<Board> {
+    const board = await this.getBoardById(id);
+    board.status = status;
+    await this.boardRepository.save(board);
+    return board;
+  }
+
+  async getAllBoards(): Promise<Board[]> {
+    return this.boardRepository.find();
+  }
 }
