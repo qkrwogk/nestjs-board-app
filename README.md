@@ -1048,6 +1048,86 @@ createBoard(@Body() createBoardDto: CreateBoardDto): Promise<Board> {
 
 ### 게시물 삭제하기
 
+remove()도 있고 delete() 있는데, remove는 없으면 404 에러뜬대
+그니까 delete() 쓰래 ㅇㅇ
+
+```ts
+// boards.service.ts
+async deleteBoardById(id: number): Promise<void> {
+  await this.boardRepository.delete({ id });
+
+  Logger.log(`Board with id ${id} deleted`);
+}
+```
+
+저번에 배운 Logger 써보고~
+
+```ts
+// boards.controller.ts
+@Delete('/:id')
+deleteBoardById(@Param('id', ParseIntPipe) id: number): Promise<void> {
+  return this.boardsService.deleteBoardById(id);
+}
+```
+
+컨트롤러에선 id가 int니까 ParseIntPipe란걸 한번 써보자고?
+
+<img width="862" alt="스크린샷 2023-10-26 오전 12 06 50" src="https://user-images.githubusercontent.com/138586629/278058155-3842c8d8-6600-4332-b3d2-e29256675ad8.png">
+
+지워졌단 로그 정말 잘 뜨고?
+
+<img width="573" alt="스크린샷 2023-10-26 오전 12 07 34" src="https://user-images.githubusercontent.com/138586629/278058331-b0dd1e8c-43e3-42ca-865b-a31691d2a8bd.png">
+
+아주그냥 지워졌죠? 굳
+
+### 게시물 상태 업데이트하기
+
+```ts
+// boards.service.ts
+async updateBoardStatus(id: number, status: BoardStatus): Promise<Board> {
+  const board = await this.getBoardById(id);
+  board.status = status;
+  await this.boardRepository.save(board);
+  return board;
+}
+```
+
+```ts
+// boards.controller.ts
+@Patch('/:id/status')
+updateBoardStatus(
+  @Param('id', ParseIntPipe) id: number,
+  @Body('status', BoardStatusValidationPipe) status: BoardStatus,
+): Promise<Board> {
+  return this.boardsService.updateBoardStatus(id, status);
+}
+```
+
+<img width="779" alt="스크린샷 2023-10-26 오전 12 30 58" src="https://user-images.githubusercontent.com/138586629/278065871-793dafb2-a589-4615-8032-5f75f044290f.png">
+
+<img width="653" alt="스크린샷 2023-10-26 오전 12 31 19" src="https://user-images.githubusercontent.com/138586629/278065945-9b2dcd2a-9904-4dad-8147-883d1b5117e0.png">
+
+### 전체 게시물 가져오기
+
+```ts
+// boards.service.ts
+async getAllBoards(): Promise<Board[]> {
+  return this.boardRepository.find();
+}
+```
+
+```ts
+// boards.controller.ts
+@Get()
+getAllBoards(): Promise<Board[]> {
+  return this.boardsService.getAllBoards();
+}
+```
+
+<img width="794" alt="스크린샷 2023-10-26 오전 12 34 03" src="https://user-images.githubusercontent.com/138586629/278066703-219e4acd-e98a-4584-84a7-95f387c861f1.png">
+
+## 인증
+
 ## 학습메모
 
 1. [따라하면서 배우는 NestJS](https://www.youtube.com/watch?v=3JminDpCJNE&t=1677s)
