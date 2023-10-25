@@ -796,6 +796,7 @@ Entity라는 Class를 정의해서 등록해주는 거랜다. ㅇㅋㅇㅋ?
 import { BaseEntity, Column, PrimaryGeneratedColumn } from 'typeorm';
 import { BoardStatus } from './boards.model';
 
+@Entity()
 export class Board extends BaseEntity {
   @PrimaryGeneratedColumn()
   id: number;
@@ -886,7 +887,166 @@ import { Board } from './board.entity';
 공식문서에서는 이렇게 사용하라고 하네요 ㅇㅇ 아몰라 일단 위에껄로 해놓고 아예 안돌아가면
 그때 또 고치는걸로 하자.
 
-##
+## CRUD 구현하기
+
+### 구현을 위해 소스코드 정리할 부분
+
+- BoardsService 부분 전부 주석처리
+- BoardsController 부분 전부 주석처리
+- Board Model은 이제 필요없음. Entity로 할거거든. (status 부분만 남기자)
+
+### ID를 이용해서 특정 게시물 가져오기
+
+#### BoardRepository 의존성 주입
+
+```ts
+// boards.service.ts
+@Injectable()
+export class BoardsService {
+  constructor(
+    @InjectRepository(BoardRepository)
+    private boardRepository: BoardRepository,
+  ) {}
+}
+```
+
+#### ID로 특정 게시물 가져오기 : findOne() 메소드
+
+Repository 내장으로 존재하는 findOne() 메소드를 이용해주시면 되겠다!
+
+```ts
+// boards.service.ts
+async getBoardById(id: number): Promise<Board> {
+  const found = await this.boardRepository.findOne(id);
+  if (!found) {
+    throw new NotFoundException(`Can't find Board with id ${id}`);
+  }
+  return found;
+}
+```
+
+#### 공식 문서대로 간다
+
+중간에 계속 에러떠서 갑갑해서 그냥 repository custom 없이 공식 지원되는대로 하기로함.
+
+굳이 Repository 없이도 service단에서 필요한거 있으면 다 구현해주면 될듯함. ㅇㅈ?ㅇㅇㅈ
+(학습메모 4 계속 참고)
+
+```ts
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { User } from './user.entity';
+
+@Injectable()
+export class UsersService {
+  constructor(
+    @InjectRepository(User)
+    private usersRepository: Repository<User>,
+  ) {}
+
+  findAll(): Promise<User[]> {
+    return this.usersRepository.find();
+  }
+
+  findOne(id: number): Promise<User | null> {
+    return this.usersRepository.findOneBy({ id });
+  }
+
+  async remove(id: number): Promise<void> {
+    await this.usersRepository.delete(id);
+  }
+}
+```
+
+이게 예시 CRUD 사용법이고, 앞서도 설명했지만
+
+```ts
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { UsersService } from './users.service';
+import { UsersController } from './users.controller';
+import { User } from './user.entity';
+
+@Module({
+  imports: [TypeOrmModule.forFeature([User])],
+  providers: [UsersService],
+  controllers: [UsersController],
+})
+export class UsersModule {}
+```
+
+모듈은 이런식으로 구성해주면 된다. UserRepository 대신 User!
+자잘하게 다른 부분에 주의하자.
+
+```ts
+// boards.service.ts
+@Injectable()
+export class BoardsService {
+  constructor(
+    @InjectRepository(Board)
+    private boardRepository: Repository<Board>,
+  ) {}
+  async getBoardById(id: number): Promise<Board> {
+    const found = await this.boardRepository.findOneBy({ id });
+    if (!found) {
+      throw new NotFoundException(`Can't find Board with id ${id}`);
+    }
+    return found;
+  }
+}
+```
+
+하여간 그래서 Service는 이렇게 바뀐다.
+
+```ts
+// boards.controller.ts
+@Get('/:id')
+groupBoardById(@Param('id') id: number): Promise<Board> {
+  return this.boardsService.getBoardById(id);
+}
+```
+
+컨트롤러는 이렇게 바꿔주면됨.
+
+### 게시물 생성하기
+
+이것도 공식문서 참고하면 뚝딱일듯. 강의랑 같은 기능을 바뀐 문법으로 구현해주자. 난 천재니까 후
+
+```ts
+// boards.service.ts
+async createBoard(createBoardDto: CreateBoardDto): Promise<Board> {
+  const { title, description } = createBoardDto;
+
+  const board = this.boardRepository.create({
+    title,
+    description,
+    status: BoardStatus.PUBLIC,
+  });
+
+  await this.boardRepository.save(board);
+  return board;
+}
+```
+
+```ts
+// boards.controller.ts
+@Post()
+@UsePipes(ValidationPipe)
+createBoard(@Body() createBoardDto: CreateBoardDto): Promise<Board> {
+  return this.boardsService.createBoard(createBoardDto);
+}
+```
+
+쉽죠?
+
+<img width="792" alt="스크린샷 2023-10-25 오후 11 52 31" src="https://user-images.githubusercontent.com/138586629/278053688-69f1be74-db01-4786-93a8-251f406dc3c6.png">
+
+<img width="658" alt="스크린샷 2023-10-25 오후 11 56 23" src="https://user-images.githubusercontent.com/138586629/278054900-2db73891-485f-4d4a-8e5e-f97f4c825db7.png">
+
+잘들어가고~
+
+### 게시물 삭제하기
 
 ## 학습메모
 
