@@ -692,8 +692,206 @@ Logger.error('something went wrong! ', error);
 
 요런식으로 찍어보면 된단다. 이제 이걸 이용하자고!
 
+## MySQL DB 생성, TypeORM 사용법
+
+강의에선 Postgres를 사용하라고 나오는데, 나는 MySQL을 깊게파는 짱짱맨이니
+MySQL 데이터베이스를 새로 생성해서 권한을 주자.
+
+<img width="336" alt="스크린샷 2023-10-25 오후 8 09 59" src="https://user-images.githubusercontent.com/138586629/277983048-89baf0e3-a293-427d-af06-53536e92b984.png">
+
+<img width="560" alt="스크린샷 2023-10-25 오후 8 15 09" src="https://user-images.githubusercontent.com/138586629/277985191-75973a7f-f506-49c9-b20d-0ba9b959a206.png">
+
+완벽!
+
+TypeORM은 뭐 흔한 ORM과 똑같다. 사용방법만 알면 훨씬 쉬울테니 알아나 보자.
+(물론 미래를 생각하면 쿼리위주로 하는 습관을 들여야 되시겠다! 프로젝트할때도 쿼리 튜닝 할테니)
+
+```bash
+npm install typeorm @nestjs/typeorm mysql2
+```
+
+이렇게 3개 설치해주시면 되겠다.
+
+```ts
+import { TypeOrmModuleOptions } from '@nestjs/typeorm';
+
+const typeOrmConfig: TypeOrmModuleOptions = {
+  type: 'mysql',
+  host: 'localhost',
+  port: 3306,
+  username: '계정',
+  password: '비번',
+  database: 'nestjs_board_app',
+  entities: [__dirname + '/../**/*.entity{.ts,.js}'],
+  synchronize: true,
+};
+
+export default typeOrmConfig;
+```
+
+음 `/src/configs/typeorm.config.ts`에 이렇게 설정을 해주시고..
+
+```ts
+...
+import typeOrmConfig from './configs/typeorm.config';
+import { TypeOrmModule } from '@nestjs/typeorm';
+
+@Module({
+  imports: [BoardsModule, TypeOrmModule.forRoot(typeOrmConfig)],
+  controllers: [],
+  providers: [],
+})
+...
+```
+
+`/src/app.module.ts`에 import를 시켜주시면 되겠다.
+
+근데 안됨ㅡㅡ 뭐임?
+
+<img width="1060" alt="스크린샷 2023-10-25 오후 8 46 19" src="https://user-images.githubusercontent.com/138586629/277993880-b92b8543-6259-44d4-9b89-9cfa6720a050.png">
+
+<img width="975" alt="스크린샷 2023-10-25 오후 8 46 44" src="https://user-images.githubusercontent.com/138586629/277993890-dcfd6cb5-2b85-466d-b3d6-841d988138dc.png">
+
+<img width="830" alt="스크린샷 2023-10-25 오후 8 46 51" src="https://user-images.githubusercontent.com/138586629/277993892-b6b19935-6183-41c3-952c-4f624dcebb05.png">
+
+온갖 에러를 마주하고 피곤해졌다 ㅋ 학습메모 4 공식문서 보고 다시 도전!
+
+---
+
+아아.. 결론은 ip설정을 잘못 해준거였다.. 우분투 vm ip가 192.168..뭐시기였지
+
+```ts
+const typeOrmConfig: TypeOrmModuleOptions = {
+  ...
+  host: '192.168.64.2',
+  ...
+};
+```
+
+바본가봐 나?
+
+<img width="827" alt="스크린샷 2023-10-25 오후 8 55 31" src="https://user-images.githubusercontent.com/138586629/277996957-123c1e6b-a904-4981-b787-558859653cb8.png">
+
+이제 잘 실행된다.
+
+중간에 안되길래 `driver: 'mysql'`이런것도 넣었는데 이것도 에러 원인이였다.
+mysql2 설치했으니 드라이버 설정 안해야 돼더라. `mysql2` 넣어도 안되던데.. 뭐 일단 잘되니까 패스
+
+## Entity 생성하기
+
+ORM 없이 데이터베이스에 테이블을 생성할 땐 `CREATE TABLE...`이렇게 만드는데
+
+TypeORM 사용할 때는 Class를 정의해서 이걸 테이블로 자동 변환해주는거라
+
+Entity라는 Class를 정의해서 등록해주는 거랜다. ㅇㅋㅇㅋ?
+
+- `@Entity()` : 이 클래스가 엔티티다~
+- `@PrimaryGeneratedColumn()` : PK 컬럼을 표시
+- `@Column` : 컬럼을 표시
+
+이제 만들어보자.
+
+```ts
+// /src/boards/board.entity.ts
+import { BaseEntity, Column, PrimaryGeneratedColumn } from 'typeorm';
+import { BoardStatus } from './boards.model';
+
+export class Board extends BaseEntity {
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @Column()
+  title: string;
+
+  @Column()
+  description: string;
+
+  @Column({ default: BoardStatus.PUBLIC })
+  status: BoardStatus;
+}
+```
+
+/src/boards/board.entity.ts에 만드셈 ㅇㅇ
+
+### 번외
+
+아니 근데 nestJS 프로젝트 만드니까 수정할때마다 eslint인지 prettier인지가 자꾸 에러도 아닌
+띄어쓰기 이렇게 해라 큰따옴표대신 작은따옴표 써라 이런 시덥잖은 에러가 떠서 이거 왜 자동수정 안됨?
+
+이러고 있었는데 학습메모 5로 어찌저찌 해결을 했다. `editor default formatter`라는 걸
+설정해줘야 됨.
+
+<img width="856" alt="스크린샷 2023-10-25 오후 9 15 50" src="https://user-images.githubusercontent.com/138586629/278002078-c1364175-ab73-48a2-965f-aa2e1bb0f5f2.png">
+
+하여간 위에 있는 걸로 해결되더라. 밑에는 이미 설정했었고.
+
+1. `cmd`+`,` 입력 (환경설정 ㄱ ㄱ)
+2. `editor default formatter` 검색
+3. `Prettier`로 설정
+
+해주면 이제 알아서 cmd+s 누르면 잘 바꿔줌 ㅇㅇ
+
+## Repository 만들기
+
+1. Repository 파일 만들고
+2. 모듈에 등록
+
+```ts
+// /src/boards/board.repository.ts
+import { EntityRepository, Repository } from 'typeorm';
+import { Board } from './board.entity';
+
+@EntityRepository(Board)
+export class BoardRepository extends Repository<Board> {}
+```
+
+엥 근데 보니까 이렇게 Custom Repository를 만드는 `@EntityRepository`가
+NestJS에서 deprecated 되었다는거야
+
+<img width="672" alt="스크린샷 2023-10-25 오후 9 34 09" src="https://user-images.githubusercontent.com/138586629/278007997-ee5cbc33-1b50-4ab7-a7b0-488ab3fa9a59.png">
+
+ㅋㅋ이거 뭐 안되는게 절반이다 그쵸? 인터넷 찾아보니 annotator를 또 만들어가지고
+이걸 사용하는 방법도 있다는데.. 아까봤던 공식문서 (학습메모 4) 내려보니 ..
+
+그냥 Repository 대신에 Entity를 module에 등록해서 쓰면 되나봄?
+대신 뭐 함수 커스텀은 안되겠지만 기본 기능은 뭐 다 될거아냐? 꿍시렁꿍시렁
+
+```ts
+// /src/boards/boards.module.ts
+...
+import { BoardRepository } from './board.repository';
+
+@Module({
+  imports: [TypeOrmModule.forFeature([BoardRepository])],
+  controllers: [BoardsController],
+  providers: [BoardsService],
+})
+```
+
+원래 강의에서는 이거고
+
+```ts
+// /src/boards/boards.module.ts
+...
+// import { BoardRepository } from './board.repository';
+import { Board } from './board.entity';
+
+@Module({
+  imports: [TypeOrmModule.forFeature([Board])],
+  controllers: [BoardsController],
+  providers: [BoardsService],
+})
+```
+
+공식문서에서는 이렇게 사용하라고 하네요 ㅇㅇ 아몰라 일단 위에껄로 해놓고 아예 안돌아가면
+그때 또 고치는걸로 하자.
+
+##
+
 ## 학습메모
 
 1. [따라하면서 배우는 NestJS](https://www.youtube.com/watch?v=3JminDpCJNE&t=1677s)
 2. [class-validator 사용법](https://github.com/typestack/class-validator#manual-validation)
 3. [nestJS 환경에서 log 찍기](https://stackoverflow.com/questions/59741255/how-can-i-see-console-log-output-when-running-a-nestjs-app)
+4. [nestJS 공식문서: TypeORM + MySQL](https://docs.nestjs.com/techniques/database)
+5. [vscode eslint prettier 자동수정 적용 안될 때]()
