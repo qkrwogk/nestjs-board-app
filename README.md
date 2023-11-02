@@ -1212,6 +1212,145 @@ service에 UserRepository 의존성 주입까지.
 
 ### 회원가입 기능 구현
 
+```ts
+// auth/dto/auth-credential.dto.ts
+export class AuthCredentialsDto {
+  username: string;
+  password: string;
+}
+```
+
+일단 DTO부터 만들고요
+
+```ts
+// user.repository.ts
+import { EntityRepository, Repository } from 'typeorm';
+import { User } from './user.entity';
+import { AuthCredentialsDto } from './dto/auth-credentials.dto';
+
+@EntityRepository(User)
+export class UserRepository extends Repository<User> {
+  async createUser(authCredentialsDto: AuthCredentialsDto): Promise<void> {
+    const { username, password } = authCredentialsDto;
+    const user = this.create({ username, password });
+    await this.save(user);
+  }
+}
+```
+
+user라는 객체를 생성한다음에 save라는 메소드로 저장을 하는거죠.
+
+```ts
+// user.service.ts
+
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { UserRepository } from './user.repository';
+import { AuthCredentialsDto } from './dto/auth-credentials.dto';
+
+@Injectable()
+export class AuthService {
+  constructor(
+    @InjectRepository(UserRepository)
+    private userRepository: UserRepository,
+  ) {}
+
+  async signUp(authCredentialsDto: AuthCredentialsDto): Promise<void> {
+    return this.userRepository.createUser(authCredentialsDto);
+  }
+}
+```
+
+<img width="781" alt="스크린샷 2023-11-02 오후 4 47 04" src="https://user-images.githubusercontent.com/138586629/279903054-21e03bf8-a02e-4146-9b3a-34028a0e79b9.png">
+
+<img width="973" alt="스크린샷 2023-11-02 오후 4 46 57" src="https://user-images.githubusercontent.com/138586629/279903016-779c648e-c67f-4eea-b508-ad315af8055f.png">
+
+불안했는데 역시 안되죠?
+
+---
+
+그냥 boards때처럼 repository를 아예 사용하지 말고 그 메소드를 service로 땡겨와봅시다.
+
+```ts
+// auth.service.ts
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+// import { UserRepository } from './user.repository';
+import { AuthCredentialsDto } from './dto/auth-credentials.dto';
+import { User } from './user.entity';
+import { Repository } from 'typeorm';
+
+@Injectable()
+export class AuthService {
+  constructor(
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
+  ) {}
+
+  async signUp(authCredentialsDto: AuthCredentialsDto): Promise<User> {
+    const { username, password } = authCredentialsDto;
+    const user = this.userRepository.create({ username, password });
+    await this.userRepository.save(user);
+
+    return user;
+  }
+}
+```
+
+이렇게 하는거죠. (참고로 그냥 void 리턴해주는거에서 생성된 user entity 리턴해주는걸로 바꿈 ㅇㅇ boards에서도 그랬던데?)
+
+- UserRepository대신 Repository<User>를 inject하고
+- 우리가 만든 custom repository method(userCreate)는 singUp메소드 본문에다 써주고
+- 나머지 등록해주는 부분들도 모조리 같이 바꿔줘야됨
+
+그래서 controller, module도 바꿔줘야됨
+
+```ts
+// auth.controller.js
+import { Body, Controller, Post } from '@nestjs/common';
+import { AuthService } from './auth.service';
+import { AuthCredentialsDto } from './dto/auth-credentials.dto';
+import { User } from './user.entity';
+
+@Controller('auth')
+export class AuthController {
+  constructor(private authService: AuthService) {}
+
+  @Post('/signup')
+  signUp(@Body() authCredentialsDto: AuthCredentialsDto): Promise<User> {
+    return this.authService.signUp(authCredentialsDto);
+  }
+}
+```
+
+이건 뭐 별 차이없음 리턴값 `Promise<void>`에서 `Promise<User>` 바꾸는거?
+
+```ts
+// auth.module.ts
+
+import { Module } from '@nestjs/common';
+import { AuthController } from './auth.controller';
+import { AuthService } from './auth.service';
+import { TypeOrmModule } from '@nestjs/typeorm';
+// import { UserRepository } from './user.repository';
+import { User } from './user.entity';
+
+@Module({
+  imports: [TypeOrmModule.forFeature([User])],
+  controllers: [AuthController],
+  providers: [AuthService],
+})
+export class AuthModule {}
+```
+
+여기서는 기존에 Imports 에서 UserRepository 등록하던걸 User로 바꿔주면됨 굳
+
+<img width="798" alt="스크린샷 2023-11-02 오후 4 53 26" src="https://user-images.githubusercontent.com/138586629/279904591-2927426d-6a34-48da-baa2-1860fd09c76d.png">
+
+<img width="629" alt="스크린샷 2023-11-02 오후 4 53 44" src="https://user-images.githubusercontent.com/138586629/279904647-ad08be2b-5358-41ac-9690-f0aa54a2a206.png">
+
+된다 대박 역시나야
+
 ### 유저 데이터 유효성 체크
 
 ### 유저 이름에 유니크한 값 주기
