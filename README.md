@@ -1413,7 +1413,127 @@ controller에서 `@Body()`안에 이렇게 인자로 넣어주는거임.
 
 ### 유저 이름에 유니크한 값 주기
 
+1. repository의 findOne 메소드로 이미 있으면 에러, 없으면 저장
+2. db레벨에서 같은 이름을 가진 유저가 있으면 알아서 에러
+
+2번 방법을 쓸거임. DB의 username 컬럼을 unique 데코레이터에 등록 ㅇㅇ
+
+```ts
+// user.entity.ts
+import {
+  BaseEntity,
+  Column,
+  Entity,
+  PrimaryGeneratedColumn,
+  Unique,
+} from 'typeorm';
+
+@Entity()
+@Unique(['username'])
+export class User extends BaseEntity {
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @Column()
+  username: string;
+
+  @Column()
+  password: string;
+}
+```
+
+<img width="996" alt="스크린샷 2023-11-02 오후 5 46 48" src="https://user-images.githubusercontent.com/138586629/279918502-6d44b1e9-9209-449d-ac33-b167ef424d44.png">
+
+근데 에러가 뜨죠? 이미 jae라는 이름으로 두개를 생성해버려서.. 삭제해주자
+
+<img width="671" alt="스크린샷 2023-11-02 오후 5 47 41" src="https://user-images.githubusercontent.com/138586629/279918735-25d33e52-fb32-4c78-9671-a0edcc024d0e.png">
+
+<img width="843" alt="스크린샷 2023-11-02 오후 5 48 09" src="https://user-images.githubusercontent.com/138586629/279918873-e0734ba7-a8e6-4481-994f-7bf3064120fb.png">
+
+<img width="774" alt="스크린샷 2023-11-02 오후 5 48 43" src="https://user-images.githubusercontent.com/138586629/279919216-36c4329d-7802-44cf-8fcc-3501342d5bdc.png">
+
+<img width="775" alt="스크린샷 2023-11-02 오후 5 48 46" src="https://user-images.githubusercontent.com/138586629/279919057-fe4537d7-75cb-4ec9-892a-263337d1fe6c.png">
+
+굳 (대충 같은 이름으로 두번 생성하니 에러 잘 뜬단 뜻)
+
+<img width="993" alt="스크린샷 2023-11-02 오후 5 49 47" src="https://user-images.githubusercontent.com/138586629/279919344-e41b8735-aa1d-4dc5-86a2-7845b6c41023.png">
+
+근데 이렇게 서버단에서 에러를 띄워버릴 게 아니라 제대로 에러 처리를 해줘야겠죠?
+사용자에게도 500에러 말고 400대(브라우저 니가 잘못한거임)를 보내줘야될거고.
+
+```ts
+// auth.service.ts
+try {
+  await this.userRepository.save(user);
+} catch (error) {
+  console.log(error);
+}
+```
+
+대략 이렇게 try catch 문으로 로그를 찍어보고 `error code`로 조건문을 넣어주면 된다고 함.
+
+<img width="992" alt="스크린샷 2023-11-02 오후 5 55 29" src="https://user-images.githubusercontent.com/138586629/279920953-8520b346-2d33-4d9a-9c1b-5b41cad1a22e.png">
+
+보니까 강좌에서는 숫자 `23505`가 나왔는데(Postgres) 난 MySQL로 해서 그런지
+`ER_DUP_ENTRY`라는 문자열로 된 코드가 나왔음. `error.code`로 접근하면 되겠소.
+
+```ts
+// auth.service.ts
+import {
+  ConflictException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { AuthCredentialsDto } from './dto/auth-credentials.dto';
+import { User } from './user.entity';
+import { Repository } from 'typeorm';
+
+@Injectable()
+export class AuthService {
+  constructor(
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
+  ) {}
+
+  async signUp(authCredentialsDto: AuthCredentialsDto): Promise<User> {
+    const { username, password } = authCredentialsDto;
+    const user = this.userRepository.create({ username, password });
+
+    try {
+      await this.userRepository.save(user);
+    } catch (error) {
+      if (error.code === 'ER_DUP_ENTRY') {
+        Logger.error(`[Auth] Username ${username} already exists`);
+        throw new ConflictException(`Username ${username} already exists`);
+      } else {
+        Logger.error(
+          `[Auth] Internal Server Error while saving user ${username}`,
+        );
+        throw new InternalServerErrorException();
+      }
+    }
+
+    return user;
+  }
+}
+```
+
+멋지죠? 이렇게 겹치면 `ConflictException`이라는 걸 주면 되고,
+그거 아니면 (기존대로) `InternalServerErrorException`이라는 걸 주면 됨.
+
+<img width="778" alt="스크린샷 2023-11-02 오후 6 01 55" src="https://user-images.githubusercontent.com/138586629/279922633-98f44a24-c44b-4382-834d-cb01c6bc7a92.png">
+
+잘 됨
+
+<img width="841" alt="스크린샷 2023-11-02 오후 6 02 06" src="https://user-images.githubusercontent.com/138586629/279922683-7160b93b-4815-427a-a1b5-4d2ad938feac.png">
+
+에러 로그도 잘 남음
+
 ### 비밀번호 암호화 하기 (설명)
+
+bcrypt라는 모듈을 사용해서 비밀번호를 암호화해보겠음.
 
 ### 비밀번호 암호화 하기 (소스 코드 구현)
 
