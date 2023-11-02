@@ -1535,7 +1535,129 @@ export class AuthService {
 
 bcrypt라는 모듈을 사용해서 비밀번호를 암호화해보겠음.
 
+```bash
+npm i bcryptjs
+```
+
+```ts
+import bcrypt from 'bcryptjs';
+```
+
+요렇게 설치해서 써주면 되시겠다. 강의에선 `import * as bcrypt` 형식으로 쓰는데 우리가 프로젝트때 쓸 airbnb 코딩컨벤션에 위배되므로 미리 저렇게 써보는 연습을 ㄱ ㄱ
+
+#### 비밀번호를 암호화해서 저장하는 방법
+
+1. 평문으로 저장 (최악)
+2. key를 통해 복호화 가능한 암호 알고리즘 사용 (양방향, 별로임)
+3. sha256등 hash를 사용해서 암호화 (단방향, 굳)
+4. `salt + password`를 hash로 암호화해서 저장
+
+뭐 다 아는 내용이죠? hash써야지 ㅇㅇ salt도 쓰죠 ㅇㅇ
+
 ### 비밀번호 암호화 하기 (소스 코드 구현)
+
+이제 구현하자 구현
+
+`bcrypt.genSalt()`로 salt 생성 가능
+`bcrypt.hash(password, salt)`로 hash 가능
+
+```ts
+// auth.service.ts
+
+import {
+  ConflictException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { AuthCredentialsDto } from './dto/auth-credentials.dto';
+import { User } from './user.entity';
+import { Repository } from 'typeorm';
+import bcrypt from 'bcryptjs';
+
+@Injectable()
+export class AuthService {
+  constructor(
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
+  ) {}
+
+  async signUp(authCredentialsDto: AuthCredentialsDto): Promise<User> {
+    const { username, password } = authCredentialsDto;
+
+    const salt = await bcrypt.genSalt();
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    const user = this.userRepository.create({
+      username,
+      password: hashedPassword,
+    });
+
+    try {
+      await this.userRepository.save(user);
+    } catch (error) {
+      if (error.code === 'ER_DUP_ENTRY') {
+        Logger.error(`[Auth] Username ${username} already exists`);
+        throw new ConflictException(`Username ${username} already exists`);
+      } else {
+        Logger.error(
+          `[Auth] Internal Server Error while saving user ${username}`,
+        );
+        throw new InternalServerErrorException();
+      }
+    }
+
+    return user;
+  }
+}
+```
+
+<img width="984" alt="스크린샷 2023-11-02 오후 6 21 05" src="https://user-images.githubusercontent.com/138586629/279928421-44bf210f-0aaf-4b65-af6a-d383d600db03.png">
+
+는 `import bcrypt`, `import bcryptjs` 다 안되네요 ^^ 걍 `* as` 씁시다.
+
+```ts
+import * as bcrypt from 'bcryptjs';
+```
+
+참고로 그냥 bcrypt도 있다함 ㅇㅇ 성능은 이게 c++이라 더 좋은데 브라우저에서 못쓴다나 뭐라나 근데 서번데 뭐 상관있나? 담엔 bcrypt 써보던지 하자.
+
+<img width="777" alt="스크린샷 2023-11-02 오후 6 23 24" src="https://user-images.githubusercontent.com/138586629/279929074-383abf53-4d1f-489a-8c47-bb0f7502c5a1.png">
+
+해시 잘 생성됩니다. 근데 Salt도 따로 저장을 해줘야할텐데? 강의엔 왜 없는겨
+
+```ts
+// user.entity.ts
+...
+@Entity()
+@Unique(['username'])
+export class User extends BaseEntity {
+ ...
+
+  @Column()
+  salt: string;
+}
+```
+
+뭐 그냥 넣어주자.
+
+```ts
+// auth.service.ts
+const user = this.userRepository.create({
+  username,
+  password: hashedPassword,
+  salt,
+});
+```
+
+생성할 때 salt도 넣어주고~
+
+<img width="793" alt="스크린샷 2023-11-02 오후 6 25 54" src="https://user-images.githubusercontent.com/138586629/279929773-327479a8-bdeb-4054-9e07-088d20bebc7f.png">
+
+<img width="651" alt="스크린샷 2023-11-02 오후 6 26 18" src="https://user-images.githubusercontent.com/138586629/279929914-875ad8cf-e283-4154-8e5f-4b02f8e2cd02.png">
+
+아이죠앙
 
 ### 로그인 기능 구현하기
 
