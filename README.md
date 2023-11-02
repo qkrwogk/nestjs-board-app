@@ -1128,6 +1128,130 @@ getAllBoards(): Promise<Board[]> {
 
 ## 인증
 
+### 인증 기능 구현을 위한 준비
+
+```bash
+nest g module auth
+nest g controller auth --no-spec
+nest g service auth --no-spec
+```
+
+<img width="287" alt="스크린샷 2023-11-02 오후 4 20 44" src="https://user-images.githubusercontent.com/138586629/279896940-36b1f6ad-053e-49f3-a158-9179ebd14746.png">
+
+module, controller, service 생성하고
+
+```ts
+// /src/auth/user.entity.ts
+import { BaseEntity, Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
+
+@Entity()
+export class User extends BaseEntity {
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @Column()
+  username: string;
+
+  @Column()
+  password: string;
+}
+```
+
+auth 안에 user.entity.ts도 생성해준다.
+
+다음은 respository
+
+```ts
+// /src/auth/user.repository.ts
+import { EntityRepository, Repository } from 'typeorm';
+import { User } from './user.entity';
+
+@EntityRepository(User)
+export class UserRepository extends Repository<User> {}
+```
+
+이거 deprecated... 됐다고 위에서도 얘기했는데 일단은 이대로 쭉 따라가보자.
+대체 왜 없앤거야
+
+```ts
+// /src/auth/auth.module.ts
+import { Module } from '@nestjs/common';
+import { AuthController } from './auth.controller';
+import { AuthService } from './auth.service';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { UserRepository } from './user.repository';
+
+@Module({
+  imports: [TypeOrmModule.forFeature([UserRepository])],
+  controllers: [AuthController],
+  providers: [AuthService],
+})
+export class AuthModule {}
+```
+
+이제 모듈에 UserRepository 등록해주고
+
+```ts
+// /src/auth/auth.service.ts
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { UserRepository } from './user.repository';
+
+@Injectable()
+export class AuthService {
+  constructor(
+    @InjectRepository(UserRepository)
+    private userRepository: UserRepository,
+  ) {}
+}
+```
+
+service에 UserRepository 의존성 주입까지.
+
+이러면 준비 끝!
+
+### 회원가입 기능 구현
+
+### 유저 데이터 유효성 체크
+
+### 유저 이름에 유니크한 값 주기
+
+### 비밀번호 암호화 하기 (설명)
+
+### 비밀번호 암호화 하기 (소스 코드 구현)
+
+### 로그인 기능 구현하기
+
+### JWT에 대해서
+
+### JWT를 이용해서 토큰 생성하기
+
+### Passport, JWT 이용해서 토큰 인증 후 유저 정보 가져오기
+
+### 커스텀 데코레이터 생성하기
+
+### 인증된 유저만 게시물 보고 쓸 수 있게 해주기
+
+## 게시물에 접근하는 권한 처리
+
+### 유저와 게시물의 관계 형성 해주기
+
+### 게시물을 생성할 때 유저 정보 넣어주기
+
+### 해당 유저의 게시물만 가져오기
+
+### 자신이 생성한 게시물을 삭제하기
+
+## 로그 남기기
+
+### 로그에 대해서
+
+## 설정 및 마무리
+
+### 설정(Configuration) 이란?
+
+### 설정 적용 & 강의 마무리
+
 ## 학습메모
 
 1. [따라하면서 배우는 NestJS](https://www.youtube.com/watch?v=3JminDpCJNE&t=1677s)
