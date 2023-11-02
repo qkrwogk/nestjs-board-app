@@ -2033,7 +2033,95 @@ user 제대로 받아지는지 보려고 req.user를 리턴도 시켜보갓스~
 
 ### 커스텀 데코레이터 생성하기
 
+아까 그래서 `req.user`해서 user를 가져왔는데, 바로 user 가져오게 해볼게.
+
+`createParamDecorator()`라는걸 이용하면 된답니다.
+
+`ctx.switchToHttp().getRequest()` 하면 아까 로그에 쭉 쌓였던 nest의 request 객체(HTTP Request 파싱한거)를 가져오는거임.
+
+```ts
+// /src/auth/get-user.decorator.ts
+import { ExecutionContext, createParamDecorator } from '@nestjs/common';
+import { User } from './user.entity';
+
+export const GetUser = createParamDecorator(
+  (data, ctx: ExecutionContext): User => {
+    const req = ctx.switchToHttp().getRequest();
+    return req.user;
+  },
+);
+```
+
+뭐 요렇게 데코레이터 정의를 해주고요.
+
+```ts
+// auth.controller.ts
+@Post('/test')
+@UseGuards(AuthGuard())
+test(@GetUser() user: User) {
+  console.log(user);
+
+  return { id: user.id, username: user.username };
+}
+```
+
+대강 이렇게 해주면 되겠습니다. password 찝찝해서 뺐습니다.
+
+<img width="1090" alt="스크린샷 2023-11-03 오전 12 03 52" src="https://user-images.githubusercontent.com/138586629/280035249-8e7bae56-bd2e-4ae0-9dde-c208b68b2c5a.png">
+
+네 잘 되네요
+
+<img width="556" alt="스크린샷 2023-11-03 오전 12 04 21" src="https://user-images.githubusercontent.com/138586629/280035375-936e1d05-7876-4072-aeaa-e87378837d24.png">
+
+로그정돈 남길 수 있잖아요 알겠어요 지울게요
+
 ### 인증된 유저만 게시물 보고 쓸 수 있게 해주기
+
+이제 드디어 아까 테스트한 Guards 미들웨어를 실제로 boards에서 로그인이 되어있는 상태여야 글 조회가 가능하도록 등록하는 것을 가능하도록 해보죠!
+
+```ts
+// boards.module.ts
+...
+import { AuthModule } from 'src/auth/auth.module';
+
+@Module({
+  imports: [TypeOrmModule.forFeature([Board]), AuthModule],
+  controllers: [BoardsController],
+  providers: [BoardsService],
+})
+export class BoardsModule {}
+```
+
+간만에 찾아뵙게된 boards.module.ts. AuthModule을 imports로 등록!
+
+```ts
+// boards.controller.ts
+
+import {
+  ...
+  UseGuards,
+} from '@nestjs/common';
+...
+import { AuthGuard } from '@nestjs/passport';
+
+@Controller('boards')
+@UseGuards(AuthGuard())
+export class BoardsController {
+  ...
+}
+```
+
+이렇게 Controller 단에서 전체에 넣어버릴 수도 있다.
+
+그러면은 이제 뭘 해도 안되겠죠 인증없으면?
+
+<img width="1104" alt="스크린샷 2023-11-03 오전 12 13 08" src="https://user-images.githubusercontent.com/138586629/280038292-895448fd-07ca-41ff-9556-581f1fc9e514.png">
+
+토큰 없으면 안되고
+
+<img width="1088" alt="스크린샷 2023-11-03 오전 12 13 18" src="https://user-images.githubusercontent.com/138586629/280038336-fc23a8f5-a228-4516-a044-d06e9d80c34a.png">
+
+토큰 있으면 되고 ㅇㅈ?ㅇㅇㅈ
 
 ## 게시물에 접근하는 권한 처리
 
