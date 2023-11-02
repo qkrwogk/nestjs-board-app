@@ -1661,6 +1661,85 @@ const user = this.userRepository.create({
 
 ### 로그인 기능 구현하기
 
+signIn()함수를 만들어 줄건 데 요 !
+
+repository.findOne() 써서 뭐시기저시기 해주면 됨 ㅇㅇ
+=> 강의에선 그런데 나는 {}로 특정 속성(username)만으로 검색할거라 `findOneBy()`
+
+```ts
+// auth.service.ts
+
+import {
+  ConflictException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { AuthCredentialsDto } from './dto/auth-credentials.dto';
+import { User } from './user.entity';
+import { Repository } from 'typeorm';
+import * as bcrypt from 'bcryptjs';
+
+@Injectable()
+export class AuthService {
+  ...
+  async signIn(authCredentialsDto: AuthCredentialsDto): Promise<string> {
+    const { username, password } = authCredentialsDto;
+    const user = await this.userRepository.findOneBy({ username });
+
+    if (user && (await bcrypt.compare(password, user.password))) {
+      return 'login successful';
+    } else {
+      throw new UnauthorizedException('login failed');
+    }
+  }
+}
+```
+
+```ts
+import { Body, Controller, Post, ValidationPipe } from '@nestjs/common';
+import { AuthService } from './auth.service';
+import { AuthCredentialsDto } from './dto/auth-credentials.dto';
+import { User } from './user.entity';
+
+@Controller('auth')
+export class AuthController {
+  ...
+  @Post('/signin')
+  signIn(
+    @Body(ValidationPipe) authCredentialsDto: AuthCredentialsDto,
+  ): Promise<string> {
+    return this.authService.signIn(authCredentialsDto);
+  }
+}
+```
+
+<img width="803" alt="스크린샷 2023-11-02 오후 6 51 43" src="https://user-images.githubusercontent.com/138586629/279937307-fed4b79b-f9fa-4723-b36d-27e189625100.png">
+
+<img width="792" alt="스크린샷 2023-11-02 오후 6 51 50" src="https://user-images.githubusercontent.com/138586629/279937311-de40b9d5-898f-4e3d-af9f-ff0e0e8b7ccb.png">
+
+아니 이게 무슨일이야 난 어디에도 salt를 넣지 않았는데...????
+`bcrypt.compare()` 함수에서 대체 무슨일이 일어나고 있는거지????? 이게 왜 됨?
+
+#### bcrypt.compare()에 대한 의문
+
+학습메모 6, 7. 특히 7에서 비슷한 의문을 가졌던 사람들이 설명을 잘 해준다.
+
+<img width="506" alt="스크린샷 2023-11-02 오후 7 03 46" src="https://user-images.githubusercontent.com/138586629/279940471-2568f91f-159a-4ff4-962c-108cd777f33e.png">
+
+우선 확실한 사실은 bcrypt에서 **salt+password와 합쳐서 해시되는 건 맞고, 다만 그 hash값 앞에 salt값이 그냥 붙어있는 것.**
+
+이게 보통은 salt를 따로 저장해둬야 한다고 배우기 때문에 살짝 혼란스러웠는데
+
+1. 결국 salt+password로 hash하는 사실엔 변함이 없음
+2. salt값이 그냥 노출되는 것 같지만 사실 원래 salt column 하나 더 만들어서 저장하는거나 password(hashed password) column에 같이 저장하는거나 매한가지임.
+
+그래서 그냥 `bcrypt.hash()`의 return값이 `salt + hash(salt+password)`다 이렇게 이해하면 됨. 보안적으로 **salt column을 따로 두는 것과 아무 차이가 없음.**
+
+고민 해결! (salt column은 다시 지워주자)
+
 ### JWT에 대해서
 
 ### JWT를 이용해서 토큰 생성하기
@@ -1697,4 +1776,6 @@ const user = this.userRepository.create({
 2. [class-validator 사용법](https://github.com/typestack/class-validator#manual-validation)
 3. [nestJS 환경에서 log 찍기](https://stackoverflow.com/questions/59741255/how-can-i-see-console-log-output-when-running-a-nestjs-app)
 4. [nestJS 공식문서: TypeORM + MySQL](https://docs.nestjs.com/techniques/database)
-5. [vscode eslint prettier 자동수정 적용 안될 때]()
+5. [vscode eslint prettier 자동수정 적용 안될 때](https://kir93.tistory.com/entry/VSCode-ESLint-Prettier-%EC%9E%90%EB%8F%99-%EC%88%98%EC%A0%95-%EC%A0%81%EC%9A%A9%EC%95%88%EB%90%A0-%EB%95%8C#google_vignette)
+6. [bcrypt.compare()에 hash를 안넣어도 왜 될까](https://www.inflearn.com/questions/402769/salt-%EC%9D%B4%EC%9A%A9%ED%95%98%EC%97%AC-%ED%8C%A8%EC%8A%A4%EC%9B%8C%EB%93%9C-%EC%83%9D%EC%84%B1%ED%9B%84-%EB%82%98%EC%A4%91%EC%97%90-%ED%8C%A8%EC%8A%A4%EC%9B%8C%EB%93%9C-%EB%B9%84%EA%B5%90%ED%95%A0%EB%95%8C-salt%EA%B0%92%EC%9D%B4-%ED%95%84%EC%9A%94%ED%95%98%EC%A7%80-%EC%95%8A%EB%82%98%EC%9A%94)
+7. [bcrypt.compare()에 hash를 안넣어도 왜 될까2](https://stackoverflow.com/questions/13023361/how-does-node-bcrypt-js-compare-hashed-and-plaintext-passwords-without-the-salt)
