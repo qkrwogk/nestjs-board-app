@@ -1876,6 +1876,161 @@ payload에 username도 잘 들어가있죠? 굳 성공
 
 ### Passport, JWT 이용해서 토큰 인증 후 유저 정보 가져오기
 
+<img width="938" alt="스크린샷 2023-11-02 오후 11 10 16" src="https://user-images.githubusercontent.com/138586629/280016636-74d2e7e4-b6c2-4a12-919e-332d8722b105.png">
+
+뭐 하여튼 실제로는 걍 Json으로 보내는게 아니라 cookie에 넣어줘야죠?
+그리고 인증할때 HTTP Header 중 Auth..로 하는데 `Bearer` 토큰을 이용하겠대!
+
+이런것들을 다 작성해줄거임
+
+하여튼 이 그림에서 5, 6번을 이번에 구현할거임
+
+먼저 추가로 필요한 모듈
+
+- @types/passport-jwt
+
+```bash
+npm i @types/passport-jwt
+```
+
+그 후 /src/auth/jwt.strategy.ts 생성해줘야함. 여기다 앞서말한 정보들을 넣어줘야함.
+
+```ts
+// /src/auth/jwt.strategy.ts
+
+import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { PassportStrategy } from '@nestjs/passport';
+import { InjectRepository } from '@nestjs/typeorm';
+import { ExtractJwt, Strategy } from 'passport-jwt';
+import { Repository } from 'typeorm';
+import { User } from './user.entity';
+import { jwtConfig } from 'src/configs/jwt.config';
+
+@Injectable()
+export class JwtStrategy extends PassportStrategy(Strategy) {
+  constructor(
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
+  ) {
+    super({
+      secretOrKey: jwtConfig.secret,
+      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+    });
+  }
+
+  async validate(payload: { username: string }): Promise<User> {
+    const { username } = payload;
+    const user: User = await this.userRepository.findOneBy({ username });
+
+    if (!user) {
+      throw new UnauthorizedException();
+    }
+
+    return user;
+  }
+}
+```
+
+이거 어려우니까 여러 번 보고 눈에 익히자. (강의랑 조금 다름 repository랑 scret 등)
+
+그리고 이제 boards 등 다른 모듈에서도 jwt 기능을 사용하기 위해서 module에서 exports에 등록해줘야 함.
+(인가, Authorization을 위해 사용하는 거겠지용? 로그인 해야 글 볼 수 있다 등등)
+
+```ts
+// auth.module.ts
+...
+import { PassportModule } from '@nestjs/passport';
+import { JwtStrategy } from './jwt.strategy';
+
+@Module({
+  imports: [
+    PassportModule.register({ defaultStrategy: 'jwt' }),
+    JwtModule.register(jwtConfig),
+    TypeOrmModule.forFeature([User]),
+  ],
+  controllers: [AuthController],
+  providers: [AuthService, JwtStrategy],
+  exports: [JwtStrategy, PassportModule],
+})
+export class AuthModule {}
+```
+
+대충 뭔말인지 아시겠죠?
+
+이제 auth 기능 잘 동작하는지 테스트를 한 번 해보죠
+
+```ts
+// auth.controller.ts
+
+@Post('/test')
+test(@Req() req) {
+  console.log(req);
+} // test
+```
+
+auth controller에 `POST /auth/test` 등록.
+
+<img width="1074" alt="스크린샷 2023-11-02 오후 11 36 15" src="https://user-images.githubusercontent.com/138586629/280024722-06ffdfeb-592d-45ba-adcf-10d14824ad84.png">
+
+Postman의 Authorization 기능을 이용해서 Bearer Token에 아까 생성한 AccessToken을 넣어보는거임 ㅇㅇ
+
+<img width="998" alt="스크린샷 2023-11-02 오후 11 35 50" src="https://user-images.githubusercontent.com/138586629/280024592-086bf1d4-bfa0-4ff0-afc2-5e2d5300c08b.png">
+
+엄청나게 많은 정보가 쏟아져 나오는데 아무튼 authorization에 Bearer랑 토큰이 잘 들어가서 서버로 전송은 되지요? 일단 아래로 넘어가봐 할 거 더있음.
+
+#### UseGuards
+
+강의 설명이 갑자기 이상해졌는데, 결국에 우리가 **어떤 기능에 대해 인증 후에 사용**하도록
+하고싶으면 `미들웨어단에 아까 만든 validate() 메소드를 통과`시켜줘야 하잖아?
+
+그러려고 그 위에서 헤더에 Bearer Token을 넣어줬는데 그 토큰을 미들웨어 단에서
+토큰 인증 후 인증 통과하면 user객체를 반환해서 해당 사용자 정보까지 얻을 수 있도록 해야겠죠?
+
+지금 POST /auth/test에는 요청 값에 당연히 user객체가 없죠?
+
+이걸 확인하고 반환값(user객체)까지 전달해주는 미들웨어를 `Guards` 미들웨어로 구현 가능
+
+하여튼 `@UserGuards(AuthGuard())`라는 걸 넣으면 그게 가능
+
+<img width="602" alt="스크린샷 2023-11-02 오후 11 39 41" src="https://user-images.githubusercontent.com/138586629/280025875-a7158098-5250-48f6-9e87-57b724c344d4.png">
+
+`Guards`는 미들웨어 중에 하나인데
+
+<img width="744" alt="스크린샷 2023-11-02 오후 11 40 51" src="https://user-images.githubusercontent.com/138586629/280026214-d5727bbe-f0ae-4358-95fc-a3b08e36a003.png">
+
+<img width="737" alt="스크린샷 2023-11-02 오후 11 41 14" src="https://user-images.githubusercontent.com/138586629/280026359-0fa023b3-78c8-456a-a5c8-4c002b1bf19b.png">
+
+하여튼간에 지정된 경로로 통과할 수 있는 사람과 허용되지 않은 사람을 서버에게 알려주는 역할을 한대. 그 로그인 인증 말하는 거 아니고 토큰 인증 후 인가하는거 말하는거임 ㅇㅇ
+
+말을 어렵게 해서 그렇지 결국 `Guards: 인가(Authorization) 미들웨어`라고 보면될듯
+
+<img width="693" alt="스크린샷 2023-11-02 오후 11 48 29" src="https://user-images.githubusercontent.com/138586629/280028677-dab320b5-a6fb-42c8-af56-0a621100aa3a.png">
+
+순서 참고. 별로 지금 알 필요는 없을듯
+
+```ts
+// auth.controller.ts
+@Post('/test')
+@UseGuards(AuthGuard())
+test(@Req() req) {
+  console.log(req);
+  return req.user;
+} // test
+```
+
+하여튼 어쨋든 그냥 `@UseGuards(AuthGuard())`해주면 됨.
+알아서 인증도 해주고 안되면 401 에러까지 띄워줌
+
+user 제대로 받아지는지 보려고 req.user를 리턴도 시켜보갓스~
+
+<img width="1112" alt="스크린샷 2023-11-02 오후 11 52 47" src="https://user-images.githubusercontent.com/138586629/280030543-6d2cb39b-cbb0-413e-b593-e73120ebf783.png">
+
+응 잘되쥬 어머나 비번까지 와버리네..
+
+<img width="1101" alt="스크린샷 2023-11-02 오후 11 50 43" src="https://user-images.githubusercontent.com/138586629/280029786-2b0c1532-bf67-4ca6-ab2f-bfc7e714e930.png">
+
+하여튼 잘못된 값 넣으면 이렇게 401 에러 뜸
+
 ### 커스텀 데코레이터 생성하기
 
 ### 인증된 유저만 게시물 보고 쓸 수 있게 해주기
