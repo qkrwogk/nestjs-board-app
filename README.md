@@ -1353,6 +1353,64 @@ export class AuthModule {}
 
 ### 유저 데이터 유효성 체크
 
+유저 생성할 때 원하는 이름의 길이, 비밀번호 길이 같은 유효성 체크 ㅇㅇ
+
+`class-validator` 사용할거임 boards때 썼었던 ㅇㅇ
+
+```ts
+// auth-credentials.dto.ts
+
+import { IsString, Matches, MaxLength, MinLength } from 'class-validator';
+
+export class AuthCredentialsDto {
+  @IsString()
+  @MinLength(4)
+  @MaxLength(20)
+  username: string;
+
+  @IsString()
+  @MinLength(4)
+  @MaxLength(20)
+  // 영어만 숫자만 가능한 유효성 체크
+  @Matches(/^[a-zA-Z0-9]*$/, {
+    message: 'password only accepts english and number',
+  })
+  password: string;
+}
+```
+
+DTO에서 이렇게 등록해주는거임.
+
+ValidationPipe를 무조건 통과시켜줘야 이게 유효성 체크를 실제로 함.
+
+```ts
+// auth.controller.ts
+import { Body, Controller, Post, ValidationPipe } from '@nestjs/common';
+import { AuthService } from './auth.service';
+import { AuthCredentialsDto } from './dto/auth-credentials.dto';
+import { User } from './user.entity';
+
+@Controller('auth')
+export class AuthController {
+  constructor(private authService: AuthService) {}
+
+  @Post('/signup')
+  signUp(
+    @Body(ValidationPipe) authCredentialsDto: AuthCredentialsDto,
+  ): Promise<User> {
+    return this.authService.signUp(authCredentialsDto);
+  }
+}
+```
+
+controller에서 `@Body()`안에 이렇게 인자로 넣어주는거임.
+
+<img width="784" alt="스크린샷 2023-11-02 오후 5 12 23" src="https://user-images.githubusercontent.com/138586629/279909134-ab2c48fb-50b5-494f-91c5-fc1db4c29315.png">
+
+<img width="796" alt="스크린샷 2023-11-02 오후 5 13 01" src="https://user-images.githubusercontent.com/138586629/279909290-06f16be1-4dcd-4983-b41c-3fc8288f4ae2.png">
+
+지리죠?
+
 ### 유저 이름에 유니크한 값 주기
 
 ### 비밀번호 암호화 하기 (설명)
