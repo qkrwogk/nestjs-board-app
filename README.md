@@ -1742,7 +1742,137 @@ export class AuthController {
 
 ### JWT에 대해서
 
+JWT는 뭐 Json Web Token이고, Header, Payload, Verify Signature로 구성되어 있고 등등~
+
+- Header : 토근에 대한 메타 데이터 포함. 타입, 해싱 알고리즘(SHA256, RSA, ...)
+- Payload : 유저 정보(issuer), 만료 기간(expiration time), 주제(subject), ...
+- Verify Signature : 위변조 방지. HMACSHA256(헤더, 페이로드, secret)
+
 ### JWT를 이용해서 토큰 생성하기
+
+필요한 모듈들 설치
+
+- @nestjs/jwt
+- @nestjs/passport
+- passport
+- passport-jwt
+
+```bash
+npm i @nestjs/jwt @nestjs/passport passport passport-jwt
+```
+
+다음으론 auth 모듈에 imports로 JWT모듈 넣어주자.
+
+```ts
+...
+import { JwtModule } from '@nestjs/jwt';
+import { jwtConfig } from 'src/configs/jwt.config';
+import { PassportModule } from '@nestjs/passport';
+
+@Module({
+  imports: [
+    PassportModule.register({ defaultStrategy: 'jwt' }),
+    JwtModule.register(jwtConfig),
+    TypeOrmModule.forFeature([User]),
+  ],
+  controllers: [AuthController],
+  providers: [AuthService],
+})
+export class AuthModule {}
+```
+
+```ts
+import { JwtModuleOptions } from '@nestjs/jwt';
+
+const jwtConfig: JwtModuleOptions = {
+  secret: 비밀임^^,
+  signOptions: {
+    expiresIn: 3600,
+  },
+};
+
+export { jwtConfig };
+```
+
+config는 따로 빼서 .gitignore 처리해줬다.
+
+service에서도 jwtService를 등록해서 사용하게 해줘야 함.
+그 뒤에 signIn() 함수에서 `return 'login Success'` 대신에 유저 토큰을 생성해줘야지.
+
+```ts
+// auth.service.ts
+import {
+  ConflictException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { AuthCredentialsDto } from './dto/auth-credentials.dto';
+import { User } from './user.entity';
+import { Repository } from 'typeorm';
+import * as bcrypt from 'bcryptjs';
+import { JwtService } from '@nestjs/jwt';
+
+@Injectable()
+export class AuthService {
+  constructor(
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
+    private jwtService: JwtService,
+  ) {}
+
+  ...
+
+  async signIn(
+    authCredentialsDto: AuthCredentialsDto,
+  ): Promise<{ accessToken: string }> {
+    const { username, password } = authCredentialsDto;
+    const user = await this.userRepository.findOneBy({ username });
+
+    if (user && (await bcrypt.compare(password, user.password))) {
+      // 유저 토큰 생성 (Secret + Payload)
+      const payload = { username };
+      const accessToken = await this.jwtService.sign(payload);
+
+      return { accessToken };
+    } else {
+      throw new UnauthorizedException('login failed');
+    }
+  }
+}
+```
+
+```ts
+// auth.controller.ts
+import { Body, Controller, Post, ValidationPipe } from '@nestjs/common';
+import { AuthService } from './auth.service';
+import { AuthCredentialsDto } from './dto/auth-credentials.dto';
+import { User } from './user.entity';
+
+@Controller('auth')
+export class AuthController {
+  constructor(private authService: AuthService) {}
+  ...
+  @Post('/signin')
+  signIn(
+    @Body(ValidationPipe) authCredentialsDto: AuthCredentialsDto,
+  ): Promise<{ accessToken: string }> {
+    return this.authService.signIn(authCredentialsDto);
+  }
+}
+```
+
+컨트롤러에서는 리턴타입만 바꿔주면 됨 ㅇㅇ `{ accessToken: string }`
+
+<img width="798" alt="스크린샷 2023-11-02 오후 11 08 09" src="https://user-images.githubusercontent.com/138586629/280015957-6bbf9de9-78b4-413a-b8ed-fab71011515a.png">
+
+잘 나오고요
+
+<img width="1296" alt="스크린샷 2023-11-02 오후 11 09 09" src="https://user-images.githubusercontent.com/138586629/280016280-58b94200-63b5-4d80-8f00-0fcd2fc0544d.png">
+
+payload에 username도 잘 들어가있죠? 굳 성공
 
 ### Passport, JWT 이용해서 토큰 인증 후 유저 정보 가져오기
 
