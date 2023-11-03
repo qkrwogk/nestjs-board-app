@@ -2328,9 +2328,109 @@ async deleteBoardById(id: number, user: User): Promise<void> {
 
 ### 로그에 대해서
 
+이제 로그에 대해서 알아볼건디요.
+
+#### 로그의 종류
+
+- Log : 중요한 정보의 범용 로깅
+- Warning : 치명적이거나 파괴적이지 않은 처리되지 않은 문제
+- Error : 치명적이거나 파괴적인 처리되지 않은 문제
+- Debug : 오류 발생시 로직 디버그용 로그 (개발자용)
+- Verbose : TMI까지 다출력하는, App 동작 전반에 관한 로그 (운영자용)
+
+#### 로그 레벨 (예시)
+
+- Development : Log, Error, Warning, Debug, Verbose
+- Staging : Log, Error, Warning
+- Production : Log, Error
+
+#### 구현 고고
+
+보통 express는 winston(우리도 마이썼죠) 모듈을 주로 쓰는데
+nest에는 빌트인 Logger 클래스가 있어서 이걸 사용(혼자 찾아서 계속 썼었긴함ㅎ)
+
+원래 로그는 개발단계에서 계속 찍어주는게 맞음 ㅇㅇ
+
+```ts
+// main.ts
+...
+import { Logger } from '@nestjs/common';
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  await app.listen(3000);
+  Logger.log(`[App] Application listening on port 3000`);
+}
+bootstrap();
+```
+
+이건 뭐 main.ts에서 로그 찍는 예시. 우리 뭐 양식도 잘 통일했었잖아.
+copilot이 알아서 다 해줄거임 탭만 치셈 (나머지 로깅은 생략 커밋보센)
+
+근데 클래스 안에 Logger 객체를 생성해서 남기면 어디서 로그 내보내는지 표시도 할 수 있거든? 이 기능도 보여줄게 boards에서
+
+```ts
+// boards.controller.ts
+...
+@Controller('boards')
+@UseGuards(AuthGuard())
+export class BoardsController {
+  private logger = new Logger('BoardsController');
+  constructor(private boardsService: BoardsService) {}
+
+  @Get('/me')
+  getAllBoardsByUser(@GetUser() user: User): Promise<Board[]> {
+    this.logger.verbose(`User ${user.username} retrieving all boards`);
+    return this.boardsService.getAllBoardsByUser(user);
+  }
+  ...
+  @Get()
+  getAllBoards(): Promise<Board[]> {
+    this.logger.verbose('Retrieving all boards');
+    return this.boardsService.getAllBoards();
+  }
+}
+```
+
+<img width="758" alt="스크린샷 2023-11-03 오후 2 40 44" src="https://user-images.githubusercontent.com/138586629/280193218-46f31dbd-99af-48d5-beae-e89535cca5d5.png">
+
+이쁘게 잘 남쥬? 로그 생성 위치 정보가 노란색으로 이쁘게 표시되니 잘 활용하도록 ㅇ ㅇ ㅇ
+
+```ts
+// boards.controller.ts
+@Post()
+@UsePipes(ValidationPipe)
+createBoard(
+  @Body() createBoardDto: CreateBoardDto,
+  @GetUser() user: User,
+): Promise<Board> {
+  this.logger.verbose(
+    `User ${user.username} creating a new board. Payload: ${JSON.stringify(
+      createBoardDto,
+    )}`,
+  );
+  return this.boardsService.createBoard(createBoardDto, user);
+}
+```
+
+객체는 JSON Stringify로 감싸줘야지 안그러면 [Object object]로 내용이 감추어져버림
+
+<img width="919" alt="스크린샷 2023-11-03 오후 2 45 59" src="https://user-images.githubusercontent.com/138586629/280193761-676f4824-a244-449d-b390-954688a547cb.png">
+
+before
+
+<img width="1001" alt="스크린샷 2023-11-03 오후 2 44 03" src="https://user-images.githubusercontent.com/138586629/280193538-912c81b2-103c-459e-bee5-e2cbf6f96cd3.png">
+
+after
+
 ## 설정 및 마무리
 
 ### 설정(Configuration) 이란?
+
+이미 다 해버렸지만, 비밀번호 secret API key 이런거 따로 파일로 분리해서 gitignore로 숨겨줘야 한다 이말하는거임.
+
+```ts
+
+```
 
 ### 설정 적용 & 강의 마무리
 
