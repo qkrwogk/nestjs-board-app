@@ -2,6 +2,30 @@
 
 학습메모 1을 활용하여 간단한 CRUD 게시판(Board Module)과 회원인증(Auth Module)을 직접 구현해보자.
 
+## 목차
+
+- [x] 프로젝트 생성
+- [x] boards module, controller, service 생성
+- [x] 새로운 서비스 메소드 추가해보기
+- [x] Board의 Model 정의하기
+- [x] 게시물 생성하기 (POST(Create))
+- [x] 게시물 생성을 위한 DTO 만들기
+- [x] ID로 특정 게시물 가져오기, 지우기 (GET(Read), DELETE(Delete))
+- [x] 특정 게시물의 상태(PUBLIC/PRIVATE) 업데이트 기능 추가 (PATCH(Update))
+- [x] NestJS Pipes
+- [x] Validation Pipe @IsNotEmpty 사용해보기
+- [x] 찾는 게시물이 없을 때 예외 처리
+- [x] 없는 게시물을 지우려 할 때 예외 처리
+- [x] 커스텀 파이프를 이용한 유효성 체크
+- [x] MySQL DB 생성, TypeORM 사용법
+- [x] Entity 생성하기
+- [x] Repository 만들기
+- [x] CRUD 구현하기
+- [x] 인증
+- [x] 게시물에 접근하는 권한 처리
+- [x] 로그 남기기
+- [x] 설정 및 마무리
+
 ## 프로젝트 생성
 
 ```bash
@@ -2424,15 +2448,144 @@ after
 
 ## 설정 및 마무리
 
-### 설정(Configuration) 이란?
+### 설정(Configuration) 및 적용
 
 이미 다 해버렸지만, 비밀번호 secret API key 이런거 따로 파일로 분리해서 gitignore로 숨겨줘야 한다 이말하는거임.
 
-```ts
+설정엔 두가지가 있는데
 
+- Codebase : Port같이 노출돼도 상관 없는 정보
+- Environment Variables(환경 변수) : 비밀번호, API key 같은 숨겨야할 정보
+
+모듈은 윈도우에선 기본적으로 환경변수 지원안해줘서 win-node-env 설치,
+윈/맥 상관없이 config모듈도 설치
+
+```bash
+npm i config
 ```
 
-### 설정 적용 & 강의 마무리
+우리는 이것만 할게욤
+
+YML이나 JSON 하면 되는데 YML 해보죠
+
+- default.yml
+- development.yml
+- product.yml
+
+default는 default고,
+개발 단계랑 배포 단계에서 다르게 설정하려면 dev, product에다 설정해주면 됨.
+
+<img width="303" alt="스크린샷 2023-11-03 오후 2 58 40" src="https://user-images.githubusercontent.com/138586629/280195231-cc999c83-cb2b-4f8e-a06c-86e7f62c84d2.png">
+
+```yml
+# /config/default.yml
+server:
+  port: 3000
+
+db:
+  type: mysql
+  port: 3306
+  database: nestjs_board_app
+
+jwt:
+  expiresIn: 3600
+```
+
+```yml
+# development.yml
+db:
+  host: 192.168.64.2
+  username: ubuntu
+  password: 비밀임^^1
+  synchronize: true
+
+jwt:
+  secret: 비밀임^^2
+```
+
+```yml
+# production.yml
+db:
+  synchronize: false
+
+jwt:
+  secret: 비밀임^^3
+```
+
+뭐 이런식임 ㅇㅇ 다 넣지는 않을게
+
+```ts
+// main.ts
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+import { Logger } from '@nestjs/common';
+import * as config from 'config';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  const serverConfig = config.get('server');
+  await app.listen(serverConfig.port);
+  Logger.log(`[App] Application listening on port ${serverConfig.port}`);
+}
+bootstrap();
+```
+
+불러올때는 걍 이런식으로 해주면 됨. 기존에 하던 방식이랑 크게 다를 게 없는데?
+
+뭐 그리고 `process.env.RDS_HOSTNAME` 이런거를 설정해주면 아마존 AWS에서 환경변수로 가져온 값을 사용하게 할 수 있다네요?
+
+그래서 `process.env.RDS_HOSTNAME || dbConfig.host` 이런식으로
+설정해주면 있을 때는 환경변수 쓰고, 환경변수 없을 때는 config 파일 뒤져서
+쓰고 이런식으로 설정이 되는거임 ㅇㅋ?
+
+```ts
+// typeorm.config.ts
+import { TypeOrmModuleOptions } from '@nestjs/typeorm';
+import * as config from 'config';
+
+const dbConfig = config.get('db');
+
+const typeOrmConfig: TypeOrmModuleOptions = {
+  type: dbConfig.type,
+  host: process.env.RDS_HOSTNAME || dbConfig.host,
+  port: process.env.RDS_PORT || dbConfig.port,
+  username: process.env.RDS_USERNAME || dbConfig.username,
+  password: process.env.RDS_PASSWORD || dbConfig.password,
+  database: process.env.RDS_DB_NAME || dbConfig.database,
+  entities: [__dirname + '/../**/*.entity{.ts,.js}'],
+  synchronize: dbConfig.synchronize,
+};
+
+export { typeOrmConfig };
+```
+
+바로 이런식으로! Config 파일을 수정하는거지 아주 깔끔하네
+
+### 마무리 + AWS 배포 관련
+
+뭐 그래서
+
+- Boards, Auth 모듈/컨트롤러/서비스
+- Board, User 엔티티/DTO/리파지토리
+- 파이프(Class-Validator), Guards(AuthGuard) 등 미들웨어
+- 로깅, config, ...
+
+이런거 배움 ㅇ ㅇ
+
+배포에 대해서도 강의자료가 있는데 학습메모 8 참고.
+
+drawio로 확장자 변경해서 VSCode에서 실행하셈
+
+<img width="839" alt="스크린샷 2023-11-03 오후 4 08 21" src="https://user-images.githubusercontent.c
+om/138586629/280210619-3a310abe-70a1-4a56-bcff-345889ac89a0.png">
+
+<img width="677" alt="스크린샷 2023-11-03 오후 4 08 56" src="https://user-images.githubusercontent.com/138586629/280210642-f5f83c6b-9193-4164-ba74-d1eefa2ac65c.png">
+
+<img width="705" alt="스크린샷 2023-11-03 오후 4 09 31" src="https://user-images.githubusercontent.com/138586629/280210718-67f58ea5-30d4-4b4f-ae75-f1071480c87b.png">
+
+<img width="718" alt="스크린샷 2023-11-03 오후 4 09 28" src="https://user-images.githubusercontent.com/138586629/280210729-75e22aa9-e163-403c-bbdc-fedba3521f75.png">
+
+대충 AWS로 프론트, 백 프로젝트 배포하기 위한 좋은 지침들이 들어있단 말씀! 끝!
 
 ## 학습메모
 
@@ -2443,3 +2596,4 @@ after
 5. [vscode eslint prettier 자동수정 적용 안될 때](https://kir93.tistory.com/entry/VSCode-ESLint-Prettier-%EC%9E%90%EB%8F%99-%EC%88%98%EC%A0%95-%EC%A0%81%EC%9A%A9%EC%95%88%EB%90%A0-%EB%95%8C#google_vignette)
 6. [bcrypt.compare()에 hash를 안넣어도 왜 될까](https://www.inflearn.com/questions/402769/salt-%EC%9D%B4%EC%9A%A9%ED%95%98%EC%97%AC-%ED%8C%A8%EC%8A%A4%EC%9B%8C%EB%93%9C-%EC%83%9D%EC%84%B1%ED%9B%84-%EB%82%98%EC%A4%91%EC%97%90-%ED%8C%A8%EC%8A%A4%EC%9B%8C%EB%93%9C-%EB%B9%84%EA%B5%90%ED%95%A0%EB%95%8C-salt%EA%B0%92%EC%9D%B4-%ED%95%84%EC%9A%94%ED%95%98%EC%A7%80-%EC%95%8A%EB%82%98%EC%9A%94)
 7. [bcrypt.compare()에 hash를 안넣어도 왜 될까2](https://stackoverflow.com/questions/13023361/how-does-node-bcrypt-js-compare-hashed-and-plaintext-passwords-without-the-salt)
+8. [NestJS 배포 강의자료(drawio로 확장자 변경해서 VSCode에서 실행하셈)](https://drive.google.com/file/d/1z3QUaECsZ_bVHIUF-rYyDrNv_oCvR8re/view)
