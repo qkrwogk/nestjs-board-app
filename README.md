@@ -2127,11 +2127,202 @@ export class BoardsController {
 
 ### 유저와 게시물의 관계 형성 해주기
 
+유저(User) 테이블과 게시물(Board) 테이블 간의 관계(Relationship)을 형성을 형성하려면 엔티티에 서로 간의 필드를 넣어줘야 함.
+
+User-Board 관계는 User입장에선 OneToMany, Board입장에선 ManyToOne 관계임.
+
+entity에 이 데코레이터를 써주면 됩니다.
+
+```ts
+// user.entity.ts
+...
+@Entity()
+@Unique(['username'])
+export class User extends BaseEntity {
+  ...
+  @OneToMany(() => Board, (board) => board.user, { eager: true })
+  boards: Board[];
+}
+```
+
+```ts
+// board.entity.ts
+@Entity()
+export class Board extends BaseEntity {
+  ...
+  @ManyToOne(() => User, (user) => user.boards, { eager: false })
+  user: User;
+}
+```
+
+뭐 이렇게 하는거래 너무 물어보지는 마세요.. 약속이잖아요
+
 ### 게시물을 생성할 때 유저 정보 넣어주기
+
+board.service.ts의 createBoard에 추가해주죠.
+
+```ts
+// board.controller.ts
+@Post()
+@UsePipes(ValidationPipe)
+createBoard(
+  @Body() createBoardDto: CreateBoardDto,
+  @GetUser() user: User,
+): Promise<Board> {
+  return this.boardsService.createBoard(createBoardDto, user);
+}
+```
+
+```ts
+// board.service.ts
+async createBoard(
+  createBoardDto: CreateBoardDto,
+  user: User,
+): Promise<Board> {
+  const { title, description } = createBoardDto;
+
+  const board = this.boardRepository.create({
+    title,
+    description,
+    status: BoardStatus.PUBLIC,
+    user,
+  });
+
+  await this.boardRepository.save(board);
+  return board;
+}
+```
+
+이렇게 createBoard 컨트롤러단이랑 서비스단에서 인자에 user 추가해주면 땡!
+앞서 만든 @GetUser()도 이용해줬죠?
+
+<img width="1124" alt="스크린샷 2023-11-03 오후 1 29 33" src="https://user-images.githubusercontent.com/138586629/280185902-031613d4-a49f-4ac5-b49b-3a32703c56a0.png">
+
+로그인 해서 토큰 받은후에
+
+<img width="1116" alt="스크린샷 2023-11-03 오후 1 30 42" src="https://user-images.githubusercontent.com/138586629/280185910-62a9b549-f0be-41fe-9dc5-e27e1afd2e6c.png">
+
+POST /boards Bearer Token이랑 게시글 정보 넣어서 요청해보면
+DB에 user값까지 같이 잘 들어가는 것을 확인할 수 있다!
 
 ### 해당 유저의 게시물만 가져오기
 
+내가 쓴 글 보기 기능 추가해보자고!
+
+<img width="1079" alt="스크린샷 2023-11-03 오후 1 48 53" src="https://user-images.githubusercontent.com/138586629/280187797-db550e65-72d2-4a6c-87bb-eaa774553427.png">
+
+<img width="1109" alt="스크린샷 2023-11-03 오후 1 49 04" src="https://user-images.githubusercontent.com/138586629/280187801-72abdeb2-17fb-4876-be91-4aec27c51d7c.png">
+
+<img width="1105" alt="스크린샷 2023-11-03 오후 1 49 24" src="https://user-images.githubusercontent.com/138586629/280187803-b02a2fed-0fef-43c0-9ff5-871128b7bf76.png">
+
+user1, user2를 signup으로 생성해서 signin으로 로그인, post boards로 글쓰기를 순차적으로 진행해줬다. 글은 2~3개씩 생성해봄.
+
+`createQueryBuilder`라는것을 이용해 볼텐데요.
+
+강의에선 getAllBoard()를 바꿔서 했는데 우리는 getBoardsByUser 이런식으로 새로 만들어보죠?
+
+```ts
+// boards.controller.ts
+@Get('/me')
+getAllBoardsByUser(@GetUser() user: User): Promise<Board[]> {
+  return this.boardsService.getAllBoardsByUser(user);
+}
+```
+
+`GET /boards/me`에 등록
+
+```ts
+// boards.service.ts
+async getAllBoardsByUser(user: User): Promise<Board[]> {
+  const query = this.boardRepository.createQueryBuilder('board');
+
+  query.where('board.userId = :userId', { userId: user.id });
+
+  const boards = await query.getMany();
+
+  return boards;
+}
+```
+
+<img width="1096" alt="스크린샷 2023-11-03 오후 2 00 24" src="https://user-images.githubusercontent.com/138586629/280188867-62250eca-b358-484e-92e1-e9dc5c652d76.png">
+
+아이고 이러니까 이미 등록해둔 `GET /boards/:id`에 먼저 걸려버림
+
+<img width="511" alt="스크린샷 2023-11-03 오후 2 01 03" src="https://user-images.githubusercontent.com/138586629/280188937-1c2b409e-83b2-43ba-b93c-23021b80ef15.png">
+
+컨트롤러에서 `GET /boards/:id` 위로 올려줘버리자. 순서대로니까
+
+<img width="1091" alt="스크린샷 2023-11-03 오후 2 02 05" src="https://user-images.githubusercontent.com/138586629/280189064-71da3ec9-73cc-4d3f-be56-e8a679c3ca7a.png">
+
+<img width="1091" alt="스크린샷 2023-11-03 오후 2 02 36" src="https://user-images.githubusercontent.com/138586629/280189105-855bc6ec-9c98-4046-a9bb-8f389eca546e.png">
+
+이제 `/boards/me`, `/boards/:id` 다 문제없이 작동한다. id가 me일리는 없다 ㅇㅈ?
+
 ### 자신이 생성한 게시물을 삭제하기
+
+이제 delete할 때 자기 게시물이여야 삭제할 수 있게 하죠? ㅇㅋㅇㅋ
+
+```ts
+// board.controller.ts
+@Delete('/:id')
+deleteBoardById(
+  @Param('id', ParseIntPipe) id: number,
+  @GetUser() user: User,
+): Promise<void> {
+  return this.boardsService.deleteBoardById(id, user);
+}
+```
+
+컨트롤러엔 @GetUser만 추가해주고, 서비스메소드 파라미터에 user 추가해주고,,,
+
+```ts
+// board.service.ts
+async deleteBoardById(id: number, user: User): Promise<void> {
+  const result = await this.boardRepository.delete({ id, user });
+
+  if (result.affected === 0) {
+    throw new NotFoundException(`Can't find Board with id ${id}`);
+  }
+
+  Logger.log(`[Boards] Board with id ${id} deleted`);
+}
+```
+
+서비스에선 이렇게.. delete조건에 user 추가만 해주면 된다고.. 했거든..?
+
+<img width="1012" alt="스크린샷 2023-11-03 오후 2 14 11" src="https://user-images.githubusercontent.com/138586629/280190310-62b79101-14bb-4d30-b127-b91835499911.png">
+
+아 왜 안되는데...
+
+<img width="568" alt="스크린샷 2023-11-03 오후 2 22 38" src="https://user-images.githubusercontent.com/138586629/280191214-d9e98c74-cd01-44d2-8886-c35338b28c4b.png">
+
+삽질 좀 하다가 그룹 동료분이 정리해놓으신 자료를 참고해서 해결했다.
+저렇게 넣으면 user.id만으로 검색이 가능하구나..
+
+다시 보니 에러도 저 user안에 또 Boards[]가 있어서 에러난거라
+아무튼 저렇게 선별적으로만 넣어주면 문제없는 것 같다.
+
+왜냐면 잘됐거든 ㅋ 봐봐
+
+<img width="1089" alt="스크린샷 2023-11-03 오후 2 24 50" src="https://user-images.githubusercontent.com/138586629/280191607-cb52764e-3cd7-4db6-a7a4-66a1a6b9174d.png">
+
+15번 게시글 없애줄거임 user2에서 생성한거임 이거, 토큰도 user2꺼
+
+<img width="1109" alt="스크린샷 2023-11-03 오후 2 25 08" src="https://user-images.githubusercontent.com/138586629/280191609-d5f6ea9a-de11-40d6-bab4-7be129fc157c.png">
+
+<img width="965" alt="스크린샷 2023-11-03 오후 2 25 14" src="https://user-images.githubusercontent.com/138586629/280191611-5df65b7f-8e33-4a74-9e7e-847f3a493761.png">
+
+ㅇㅇ됨
+
+<img width="1101" alt="스크린샷 2023-11-03 오후 2 25 28" src="https://user-images.githubusercontent.com/138586629/280191613-e396aea4-7f7f-443e-bf71-8c99e6e7028a.png">
+
+됨됨
+
+<img width="1082" alt="스크린샷 2023-11-03 오후 2 29 07" src="https://user-images.githubusercontent.com/138586629/280191947-da36b182-ebdb-4fcf-a825-f019679c4c82.png">
+
+<img width="1097" alt="스크린샷 2023-11-03 오후 2 28 59" src="https://user-images.githubusercontent.com/138586629/280191952-8f30c55a-3f3b-40ea-b865-273317568d89.png">
+
+이게 NotFound 뜰 일인가 싶긴하지만 아무튼 다른 계정이 생성한 게시글은 삭제 안됨. 굳
 
 ## 로그 남기기
 
